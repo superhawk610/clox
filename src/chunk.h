@@ -9,6 +9,16 @@
 typedef enum {
   OP_CONST,
   OP_CONST_LONG,
+
+  // -- binary ops --
+  OP_ADD,
+  OP_SUBTRACT,
+  OP_MULTIPLY,
+  OP_DIVIDE,
+
+  // -- unary ops --
+  OP_NEGATE,
+
   OP_RETURN,
 } OpCode;
 

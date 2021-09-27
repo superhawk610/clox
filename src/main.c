@@ -13,6 +13,11 @@ int main(int argc, const char* argv[]) {
 
   write_constant(&chunk, 1.23, LINE_NO);
   write_constant(&chunk, 2.34, LINE_NO);
+  write_chunk(&chunk, OP_NEGATE, LINE_NO);
+  write_chunk(&chunk, OP_ADD, LINE_NO);
+  write_constant(&chunk, 2, LINE_NO);
+  write_chunk(&chunk, OP_DIVIDE, LINE_NO);
+  write_chunk(&chunk, OP_NEGATE, LINE_NO);
   write_chunk(&chunk, OP_RETURN, LINE_NO);
 
   // disasm_chunk(&chunk, "test chunk");

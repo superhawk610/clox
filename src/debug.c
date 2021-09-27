@@ -54,6 +54,21 @@ size_t disasm_instruction(Chunk* chunk, size_t offset) {
       return const_instr("OP_CONST", chunk, offset);
     case OP_CONST_LONG:
       return const_long_instr("OP_CONST_LONG", chunk, offset);
+
+    // -- binary ops --
+    case OP_ADD:
+      return simple_instr("OP_ADD", offset);
+    case OP_SUBTRACT:
+      return simple_instr("OP_SUBTRACT", offset);
+    case OP_MULTIPLY:
+      return simple_instr("OP_MULTIPLY", offset);
+    case OP_DIVIDE:
+      return simple_instr("OP_DIVIDE", offset);
+
+    // -- unary ops --
+    case OP_NEGATE:
+      return simple_instr("OP_NEGATE", offset);
+
     case OP_RETURN:
       return simple_instr("OP_RETURN", offset);
     default:
