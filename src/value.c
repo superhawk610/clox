@@ -10,7 +10,7 @@ void init_value_array(ValueArray* arr) {
 
 void write_value_array(ValueArray* arr, Value val) {
   if (arr->len == arr->cap) {
-    int old_cap = arr->cap;
+    size_t old_cap = arr->cap;
     arr->cap = GROW_CAPACITY(old_cap);
     arr->values = GROW_ARRAY(Value, arr->values, old_cap, arr->cap);
   }

@@ -10,9 +10,8 @@ int main(int argc, const char* argv[]) {
 
   init_chunk(&chunk);
 
-  int constant = add_constant(&chunk, 1.23);
-  write_chunk(&chunk, OP_CONST, LINE_NO);
-  write_chunk(&chunk, constant, LINE_NO);
+  write_constant(&chunk, 1.23, LINE_NO);
+  write_constant(&chunk, 2.34, LINE_NO);
   write_chunk(&chunk, OP_RETURN, LINE_NO);
 
   disasm_chunk(&chunk, "test chunk");

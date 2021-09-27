@@ -11,6 +11,6 @@ void disasm_chunk(Chunk* chunk, const char* name);
  * @param offset  The instruction's offset within the chunk.
  * @return offset of the next instruction
  */
-int disasm_instruction(Chunk* chunk, int offset);
+size_t disasm_instruction(Chunk* chunk, size_t offset);
 
 #endif // __CLOX_DEBUG_H__
