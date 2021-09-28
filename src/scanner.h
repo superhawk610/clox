@@ -4,6 +4,8 @@
 #include "common.h"
 
 typedef enum {
+  TOKEN__NULL__ = 0, // sentinel value (shouldn't be generated from actual code)
+
   // single character tokens
   TOKEN_LEFT_PAREN, TOKEN_RIGHT_PAREN,
   TOKEN_LEFT_BRACE, TOKEN_RIGHT_BRACE,
@@ -25,6 +27,7 @@ typedef enum {
   TOKEN_PRINT, TOKEN_RETURN, TOKEN_SUPER, TOKEN_THIS,
   TOKEN_TRUE, TOKEN_VAR, TOKEN_WHILE,
 
+  // misc.
   TOKEN_ERROR, TOKEN_EOF,
 } TokenType;
 

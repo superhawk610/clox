@@ -16,7 +16,7 @@ void compile(const char* source) {
     } else {
       printf("   | ");
     }
-    printf("%2d '%.*s'\n", tok.type, tok.len, tok.start);
+    printf("%2d '%.*s'\n", tok.type, (int) tok.len, tok.start);
 
     if (tok.type == TOKEN_EOF) break;
   }

@@ -59,6 +59,7 @@ static void run_file(const char* path) {
   if (res == INTERPRET_RUNTIME_ERR) exit(70);
 }
 
+#ifndef __TESTING__
 int main(int argc, const char* argv[]) {
 #define LINE_NO 123
 
@@ -96,3 +97,4 @@ int main(int argc, const char* argv[]) {
 
 #undef LINE_NO
 }
+#endif
