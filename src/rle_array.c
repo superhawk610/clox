@@ -1,6 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
-#include "rle.h"
+#include "rle_array.h"
 
 void init_rle_array(RLEArray* arr) {
   arr->data = NULL;

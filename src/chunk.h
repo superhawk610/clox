@@ -4,7 +4,7 @@
 #include "common.h"
 #include "value.h"
 #include "memory.h"
-#include "rle.h"
+#include "rle_array.h"
 
 typedef enum {
   OP_CONST,

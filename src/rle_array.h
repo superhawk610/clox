@@ -1,5 +1,5 @@
-#ifndef __CLOX_RLE_H__
-#define __CLOX_RLE_H__
+#ifndef __CLOX_RLE_ARRAY_H__
+#define __CLOX_RLE_ARRAY_H__
 
 #include "memory.h"
 
@@ -40,4 +40,4 @@ int get_nth_rle_array(RLEArray* arr, size_t n);
 
 void free_rle_array(RLEArray* arr);
 
-#endif // __CLOX_RLE_H__
+#endif // __CLOX_RLE_ARRAY_H__
