@@ -8,6 +8,8 @@ void disasm_chunk(Chunk* chunk, const char* name) {
   for (size_t offset = 0; offset < chunk->len; ) {
     offset = disasm_instruction(chunk, offset);
   }
+
+  printf("== /end %s ==\n", name);
 }
 
 static size_t const_instr(const char* name, Chunk* chunk, size_t offset) {

@@ -40,7 +40,7 @@ void init_chunk(Chunk* chunk);
 
 void write_chunk(Chunk* chunk, uint8_t byte, size_t line);
 
-void write_constant(Chunk* chunk, Value val, size_t line);
+uint16_t add_constant(Chunk* chunk, Value val);
 
 void free_chunk(Chunk* chunk);
 
