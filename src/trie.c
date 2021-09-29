@@ -1,7 +1,10 @@
+#include <stdio.h>
 #include <string.h>
 #include "trie.h"
 
-#define CHAR_TO_INDEX(c) ((size_t) c - (size_t) 'a')
+#define IS_EMPTY(trie) (trie->data == NULL)
+#define CHAR_TO_INDEX(c) ((int) c - (int) 'a')
+#define INDEX_TO_CHAR(i) ((char) ((int) 'a' + i))
 
 void init_trie(Trie* trie) {
   trie->data = NULL;
@@ -9,8 +12,14 @@ void init_trie(Trie* trie) {
   trie->cap = 0;
 }
 
+void free_trie(Trie* trie) {
+  FREE_ARRAY(TrieLeaf*, trie->data, trie->cap);
+  init_trie(trie);
+}
+
 static void init_leaf(TrieLeaf* leaf) {
-  memset(leaf, 0, sizeof(TrieLeaf));
+  memset(leaf->links, 0, sizeof(*leaf->links));
+  leaf->terminal = TOKEN__NULL__;
 }
 
 static TrieLeaf* create_leaf(Trie* trie) {
@@ -37,7 +46,7 @@ static TrieLeaf* get_leaf(Trie* trie, TrieLeaf* curr, char c) {
 
 void trie_push(Trie* trie, const char* element, TokenType type) {
   // if this is the first time we've pushed, initialize the root leaf
-  if (trie->data == NULL) create_leaf(trie);
+  if (IS_EMPTY(trie)) create_leaf(trie);
 
   TrieLeaf* curr = trie->data;
 
@@ -49,7 +58,7 @@ void trie_push(Trie* trie, const char* element, TokenType type) {
 }
 
 TokenType trie_has(Trie* trie, const char* element, size_t len) {
-  if (trie->data == NULL) return TOKEN__NULL__; // empty tries don't contain anything
+  if (IS_EMPTY(trie)) return TOKEN__NULL__; // empty tries don't contain anything
 
   TrieLeaf* curr = trie->data;
   char c;
@@ -64,9 +73,40 @@ TokenType trie_has(Trie* trie, const char* element, size_t len) {
   return curr->terminal;
 }
 
-void free_trie(Trie* trie) {
-  FREE_ARRAY(TrieLeaf*, trie->data, trie->cap);
-  init_trie(trie);
+static void dump_leaf(Trie* trie, TrieLeaf* leaf, TrieLeaf* parent, char c) {
+#define LEAF_ID(trie, leaf) (((size_t) leaf - (size_t) trie->data) / sizeof(TrieLeaf))
+
+  if (parent != NULL) { // root leaf won't have a parent
+    printf("  leaf_%zu [", LEAF_ID(trie, leaf));
+    if (leaf->terminal != TOKEN__NULL__) printf("shape=doublecircle, ");
+    printf("label=%c]\n", c);
+    printf("  leaf_%zu -> leaf_%zu\n", LEAF_ID(trie, parent), LEAF_ID(trie, leaf));
+  }
+
+  for (size_t i = 0; i < ALPHABET_SIZE; i++) {
+    if (leaf->links[i] == NULL) continue;
+
+    dump_leaf(trie, leaf->links[i], leaf, INDEX_TO_CHAR(i));
+  }
+
+#undef LEAF_ID
 }
 
+void dump_trie(Trie* trie) {
+  if (IS_EMPTY(trie)) {
+    printf("graph { empty }");
+    return;
+  }
+
+  printf("digraph {\n");
+  printf("  node [shape=circle]\n");
+  printf("  leaf_0 [label=root]\n");
+  dump_leaf(trie, trie->data, NULL, '\0');
+  printf("}");
+}
+
+// ---
+
+#undef IS_EMPTY
 #undef CHAR_TO_INDEX
+#undef INDEX_TO_CHAR

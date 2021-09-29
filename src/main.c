@@ -50,6 +50,9 @@ static char* read_file(const char* path) {
   return buf;
 }
 
+#include "scanner.h"
+#include "trie.h"
+
 static void run_file(const char* path) {
   char* source = read_file(path);
   InterpretResult res = interpret(source);
@@ -63,16 +66,19 @@ static void run_file(const char* path) {
 int main(int argc, const char* argv[]) {
 #define LINE_NO 123
 
+  init_scanner("");
+  dump_trie(&keywords);
+
   // Chunk chunk;
 
   init_vm();
 
-  if      (argc == 1) repl();
-  else if (argc == 2) run_file(argv[1]);
-  else {
-    fprintf(stderr, "Usage: clox [path]\n");
-    exit(64);
-  }
+  // if      (argc == 1) repl();
+  // else if (argc == 2) run_file(argv[1]);
+  // else {
+  //   fprintf(stderr, "Usage: clox [path]\n");
+  //   exit(64);
+  // }
 
   // init_chunk(&chunk);
 

@@ -2,7 +2,6 @@
 #include <string.h>
 #include "common.h"
 #include "scanner.h"
-#include "trie.h"
 
 /**
  * Scanner that tracks two indices, the start and current pointers

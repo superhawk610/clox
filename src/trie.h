@@ -3,7 +3,7 @@
 
 #include "common.h"
 #include "memory.h"
-#include "scanner.h"
+#include "token.h"
 
 // we only care about lowercase ASCII characters
 #define ALPHABET_SIZE 26
@@ -40,11 +40,13 @@ typedef struct {
 
 void init_trie(Trie* trie);
 
+void free_trie(Trie* trie);
+
 void trie_push(Trie* trie, const char* element, TokenType type);
 
 /** Returns TOKEN__NULL__ if the element wasn't contained in the trie. */
 TokenType trie_has(Trie* trie, const char* element, size_t len);
 
-void free_trie(Trie* trie);
+void dump_trie(Trie* trie);
 
 #endif // __CLOX_TRIE_H__
