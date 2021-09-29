@@ -164,6 +164,16 @@ static void unary() {
 static void binary() {
   TokenType op_type = parser.previous.type;
   ParseRule* rule = get_rule(op_type);
+
+  // parse the right operand with 1 _higher_ precedence so that
+  // binary operations are left-associtive; in other words, we want
+  //
+  //     1 + 2 + 3 + 4
+  //
+  // to be effectively parsed as
+  //
+  //     (((1 + 2) + 3) + 4)
+  //
   parse_precedence((Precedence) (rule->precedence + 1));
 
   switch (op_type) {
@@ -187,6 +197,7 @@ static void parse_precedence(Precedence prec) {
   prefix_rule(); // start by following a prefix rule...
 
   // ...then follow infix rules, as long as precedence allows
+  // (keep going so long as the ops have the same/higher precedence)
   while (prec <= get_rule(parser.current.type)->precedence) {
     advance();
     get_rule(parser.previous.type)->infix();
@@ -212,8 +223,48 @@ static void expression() {
  *     1 + 2 * 3
  *
  *     1. parse `1` as prefix with `number()`
- *     2. parse `+` as infix with `binary()`
- *     3. FIXME: complete this explanation once I understand what's happening :)
+ *
+ *     2. parse `+` as infix with `binary()`, using `1`
+ *        as the left operand
+ *
+ *     3. parse the right operand of `+`, starting with...
+ *
+ *     4. parse `2` as prefix with `number()`
+ *
+ *     5. parse `*` as infix with `binary()`, using the
+ *        entire expression thus far as the left operand
+ *
+ *     6. parse the right operand of `*`, starting with...
+ *
+ *     7. parse `3` as prefix with `number()`
+ *
+ * The resulting bytecode for this will be
+ *
+ *     OP_CONST 1
+ *     OP_CONST 2
+ *     OP_CONST 3
+ *     OP_MULTIPLY
+ *     OP_ADD
+ *
+ * Note that operators don't output their corresponding op
+ * to bytecode until they've completed parsing their operands
+ * (which are output to bytecode when parsed). This means that
+ * ops are rearranged in bytecode and resemble RPN (reverse
+ * Polish notation).
+ *
+ *     1 + 2
+ *
+ * becomes
+ *
+ *     1 2 +
+ *
+ *     OP_CONST 1
+ *     OP_CONST 2
+ *     OP_ADD
+ *
+ * NOTE: All prefix operators in Lox have the same precedence,
+ * so this table tracks the precedence of the _infix_ operators
+ * specifically.
  *
  * [1]: http://craftinginterpreters.com/compiling-expressions.html#a-pratt-parser
  */
