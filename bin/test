@@ -4,6 +4,22 @@ CC="gcc"
 CFLAGS="-std=c17 -o __test__ -D__TESTING__"
 SRC="src/*.c test/*.c"
 
+while [ $# -gt 0 ]; do
+  key="$1"
+
+  case $key in
+    -d|--debug)
+      CFLAGS="$CFLAGS -DDEBUG_TRACE_EXEC -DDEBUG_PRINT_CODE"
+      DEBUG=1
+      shift
+      ;;
+    *)
+      echo "unrecognized build option: $1"
+      shift
+      ;;
+  esac
+done
+
 ${CC} ${CFLAGS} ${SRC} && ./__test__
 
 rm -rf ./__test__
