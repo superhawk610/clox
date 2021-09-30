@@ -45,6 +45,8 @@ struct ObjString {
   Obj obj;
   size_t len;
   char* chars;
+
+  uint32_t hash; // eagerly-computed hash
 };
 
 ObjString* take_string(char* chars, size_t len);
