@@ -1,8 +1,11 @@
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 #include "common.h"
 #include "compiler.h"
 #include "debug.h"
+#include "memory.h"
+#include "object.h"
 #include "vm.h"
 
 VM vm; // global singleton, since we don't support parallel VMs
@@ -16,10 +19,22 @@ void init_vm() {
 }
 
 void free_vm() {
+  free_objects();
 }
 
-static Value peek(size_t distance);
-static bool is_falsey(Value val);
+void push(Value val) {
+  *vm.stack_top = val;
+  vm.stack_top++;
+}
+
+Value pop() {
+  vm.stack_top--;
+  return *vm.stack_top;
+}
+
+static Value peek(size_t distance) {
+  return vm.stack_top[-1 - distance];
+}
 
 static void runtime_error(const char* format, ...) {
   va_list args; // song and dance to get variadic args
@@ -32,6 +47,24 @@ static void runtime_error(const char* format, ...) {
   size_t line = get_nth_rle_array(&vm.chunk->lines, instruction);
   fprintf(stderr, "[line %zu] in script\n", line);
   reset_stack();
+}
+
+static bool is_falsey(Value val) {
+  return IS_NIL(val) || (IS_BOOL(val) && !AS_BOOL(val));
+}
+
+static void concatenate_strings() {
+  ObjString* b = AS_STRING(pop());
+  ObjString* a = AS_STRING(pop());
+
+  size_t len = a->len + b->len;
+  char* chars = ALLOCATE(char, len + 1);
+  memcpy(chars,          a->chars, a->len);
+  memcpy(chars + a->len, b->chars, b->len);
+  chars[len] = '\0';
+
+  ObjString* res = take_string(chars, len);
+  push(OBJ_VAL((Obj*) res));
 }
 
 static InterpretResult run() {
@@ -79,7 +112,22 @@ static InterpretResult run() {
       case OP_FALSE: push(BOOL_VAL(false)); break;
 
       // -- binary ops --
-      case OP_ADD:      BINARY_OP(NUMBER_VAL, +); break;
+      case OP_ADD: { // the + operator is special because it can
+                     // operate on both numbers and strings
+        if (IS_STRING(peek(0)) && IS_STRING(peek(1))) {
+          concatenate_strings();
+        } else if (IS_NUMBER(peek(0)) && IS_NUMBER(peek(1))) {
+          double b = AS_NUMBER(pop());
+          double a = AS_NUMBER(pop());
+          push(NUMBER_VAL(a + b));
+        } else {
+          runtime_error("Operands must be two strings or two numbers.");
+          return INTERPRET_RUNTIME_ERR;
+        }
+
+        break;
+      }
+
       case OP_SUBTRACT: BINARY_OP(NUMBER_VAL, -); break;
       case OP_MULTIPLY: BINARY_OP(NUMBER_VAL, *); break;
       case OP_DIVIDE:   BINARY_OP(NUMBER_VAL, /); break;
@@ -139,22 +187,4 @@ InterpretResult interpret(const char* source) {
 
   free_chunk(&chunk);
   return res;
-}
-
-static bool is_falsey(Value val) {
-  return IS_NIL(val) || (IS_BOOL(val) && !AS_BOOL(val));
-}
-
-void push(Value val) {
-  *vm.stack_top = val;
-  vm.stack_top++;
-}
-
-Value pop() {
-  vm.stack_top--;
-  return *vm.stack_top;
-}
-
-static Value peek(size_t distance) {
-  return vm.stack_top[-1 - distance];
 }

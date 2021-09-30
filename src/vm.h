@@ -12,6 +12,8 @@ typedef struct {
 
   Value  stack[STACK_MAX]; // value stack manipulator (used to track
   Value* stack_top;        // temporary values during execution)
+
+  Obj* objects; // linked-list for naive garbage collection
 } VM;
 
 typedef enum {
@@ -19,6 +21,8 @@ typedef enum {
   INTERPRET_COMPILE_ERR,
   INTERPRET_RUNTIME_ERR,
 } InterpretResult;
+
+extern VM vm;
 
 void init_vm();
 
