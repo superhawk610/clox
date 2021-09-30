@@ -72,6 +72,11 @@ static InterpretResult run() {
         break;
       }
 
+      // -- intrinsic constants --
+      case OP_NIL:   push(NIL_VAL); break;
+      case OP_TRUE:  push(BOOL_VAL(true)); break;
+      case OP_FALSE: push(BOOL_VAL(false)); break;
+
       // -- binary ops --
       case OP_ADD:      BINARY_OP(NUMBER_VAL, +); break;
       case OP_SUBTRACT: BINARY_OP(NUMBER_VAL, -); break;

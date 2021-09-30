@@ -57,6 +57,14 @@ size_t disasm_instruction(Chunk* chunk, size_t offset) {
     case OP_CONST_LONG:
       return const_long_instr("OP_CONST_LONG", chunk, offset);
 
+    // -- intrinsic constants --
+    case OP_NIL:
+      return simple_instr("OP_NIL", offset);
+    case OP_TRUE:
+      return simple_instr("OP_TRUE", offset);
+    case OP_FALSE:
+      return simple_instr("OP_FALSE", offset);
+
     // -- binary ops --
     case OP_ADD:
       return simple_instr("OP_ADD", offset);

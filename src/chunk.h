@@ -10,6 +10,13 @@ typedef enum {
   OP_CONST,
   OP_CONST_LONG,
 
+  // -- intrinsic constants --
+  // these get their own ops since they're so common,
+  // so they won't take up room in the constants block
+  OP_NIL,
+  OP_TRUE,
+  OP_FALSE,
+
   // -- binary ops --
   OP_ADD,
   OP_SUBTRACT,
