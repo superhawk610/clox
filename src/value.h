@@ -49,9 +49,11 @@ typedef struct {
 
 void init_value_array(ValueArray* arr);
 
+void free_value_array(ValueArray* arr);
+
 void write_value_array(ValueArray* arr, Value val);
 
-void free_value_array(ValueArray* arr);
+bool values_equal(Value a, Value b);
 
 void print_value(Value val);
 

@@ -74,8 +74,16 @@ size_t disasm_instruction(Chunk* chunk, size_t offset) {
       return simple_instr("OP_MULTIPLY", offset);
     case OP_DIVIDE:
       return simple_instr("OP_DIVIDE", offset);
+    case OP_EQUAL:
+      return simple_instr("OP_EQUAL", offset);
+    case OP_GREATER:
+      return simple_instr("OP_GREATER", offset);
+    case OP_LESS:
+      return simple_instr("OP_LESS", offset);
 
     // -- unary ops --
+    case OP_NOT:
+      return simple_instr("OP_NOT", offset);
     case OP_NEGATE:
       return simple_instr("OP_NEGATE", offset);
 

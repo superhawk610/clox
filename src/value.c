@@ -8,6 +8,11 @@ void init_value_array(ValueArray* arr) {
   arr->len = 0;
 }
 
+void free_value_array(ValueArray* arr) {
+  FREE_ARRAY(Value, arr->values, arr->cap);
+  init_value_array(arr);
+}
+
 void write_value_array(ValueArray* arr, Value val) {
   if (arr->len == arr->cap) {
     size_t old_cap = arr->cap;
@@ -19,9 +24,15 @@ void write_value_array(ValueArray* arr, Value val) {
   arr->len++;
 }
 
-void free_value_array(ValueArray* arr) {
-  FREE_ARRAY(Value, arr->values, arr->cap);
-  init_value_array(arr);
+bool values_equal(Value a, Value b) {
+  if (a.type != b.type) return false; // equality will always be false across types
+
+  switch (a.type) {
+    case VAL_BOOL:   return AS_BOOL(a) == AS_BOOL(b);
+    case VAL_NIL:    return true;
+    case VAL_NUMBER: return AS_NUMBER(a) == AS_NUMBER(b);
+    default:         return false; // unreachable
+  }
 }
 
 void print_value(Value val) {

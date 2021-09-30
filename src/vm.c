@@ -19,6 +19,7 @@ void free_vm() {
 }
 
 static Value peek(size_t distance);
+static bool is_falsey(Value val);
 
 static void runtime_error(const char* format, ...) {
   va_list args; // song and dance to get variadic args
@@ -83,7 +84,18 @@ static InterpretResult run() {
       case OP_MULTIPLY: BINARY_OP(NUMBER_VAL, *); break;
       case OP_DIVIDE:   BINARY_OP(NUMBER_VAL, /); break;
 
+      case OP_GREATER:  BINARY_OP(BOOL_VAL, >); break;
+      case OP_LESS:     BINARY_OP(BOOL_VAL, <); break;
+
+      case OP_EQUAL: {
+        Value b = pop();
+        Value a = pop();
+        push(BOOL_VAL(values_equal(a, b)));
+        break;
+      }
+
       // -- unary ops --
+      case OP_NOT: push(BOOL_VAL(is_falsey(pop()))); break;
       case OP_NEGATE:
         if (!IS_NUMBER(peek(0))) {
           runtime_error("Operand must be a number.");
@@ -127,6 +139,10 @@ InterpretResult interpret(const char* source) {
 
   free_chunk(&chunk);
   return res;
+}
+
+static bool is_falsey(Value val) {
+  return IS_NIL(val) || (IS_BOOL(val) && !AS_BOOL(val));
 }
 
 void push(Value val) {
