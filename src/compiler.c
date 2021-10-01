@@ -3,6 +3,7 @@
 #include "chunk.h"
 #include "compiler.h"
 #include "scanner.h"
+#include "value.h"
 
 #ifdef DEBUG_PRINT_CODE
 #include "debug.h"
@@ -172,13 +173,22 @@ static void string(bool can_assign) {
   //      ^           ^
   //      1        (len-2)
   //
-  emit_constant(OBJ_VAL((Obj*) copy_string(parser.previous.start + 1,
-                                           parser.previous.len - 2)));
+  Value str = OBJ_VAL((Obj*) copy_string(parser.previous.start + 1,
+                                         parser.previous.len - 2));
+
+  uint16_t constant;
+  bool found = value_array_find_index(&current_chunk()->constants, str, &constant);
+  if (!found) constant = add_constant(current_chunk(), str);
+
+  emit_constant_op(constant, OP_CONST, OP_CONST_LONG);
 }
 
 static uint16_t identifier_constant(Token* name) {
   Value str = OBJ_VAL((Obj*) copy_string(name->start, name->len));
-  return add_constant(current_chunk(), str);
+
+  uint16_t existing;
+  bool found = value_array_find_index(&current_chunk()->constants, str, &existing);
+  return found ? existing : add_constant(current_chunk(), str);
 }
 
 static void named_variable(Token name, bool can_assign) {
@@ -281,8 +291,8 @@ static uint16_t parse_variable(const char* err_message) {
   return identifier_constant(&parser.previous);
 }
 
-static void define_variable(uint8_t global) {
-  emit_bytes(OP_DEF_GLOBAL, global);
+static void define_variable(uint16_t global) {
+  emit_constant_op(global, OP_DEF_GLOBAL, OP_DEF_GLOBAL_LONG);
 }
 
 static void expression() {
@@ -334,7 +344,7 @@ static void synchronize() {
 }
 
 static void var_declaration() {
-  uint8_t global = parse_variable("Expected variable name.");
+  uint16_t global = parse_variable("Expected variable name.");
 
   if (match(TOKEN_EQUAL)) expression();      // read initializer expression, or
   else                    emit_byte(OP_NIL); // default to nil, if none is provided

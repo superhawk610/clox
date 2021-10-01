@@ -15,7 +15,7 @@ void free_value_array(ValueArray* arr) {
   init_value_array(arr);
 }
 
-void write_value_array(ValueArray* arr, Value val) {
+void value_array_push(ValueArray* arr, Value val) {
   if (arr->len == arr->cap) {
     size_t old_cap = arr->cap;
     arr->cap = GROW_CAPACITY(old_cap);
@@ -24,6 +24,18 @@ void write_value_array(ValueArray* arr, Value val) {
 
   arr->values[arr->len] = val;
   arr->len++;
+}
+
+/** @return true if the value was contained in the array */
+bool value_array_find_index(ValueArray* arr, Value val, uint16_t* out) {
+  for (size_t i = 0; i < arr->len; i++) {
+    if (values_equal(val, arr->values[i])) {
+      *out = i;
+      return true;
+    }
+  }
+
+  return false;
 }
 
 bool values_equal(Value a, Value b) {

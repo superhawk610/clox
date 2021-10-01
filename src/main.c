@@ -60,6 +60,8 @@ static void run_file(const char* path) {
   if (res == INTERPRET_RUNTIME_ERR) exit(EX_SOFTWARE);
 }
 
+#include "table.h"
+
 #ifndef __TESTING__
 int main(int argc, const char* argv[]) {
 #define LINE_NO 123

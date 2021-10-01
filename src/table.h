@@ -68,4 +68,6 @@ ObjString* table_find_string(Table* tab, const char* chars, size_t len, uint32_t
 
 void table_merge(Table* src, Table* dest);
 
+void dump_table(Table* tab);
+
 #endif // __CLOX_TABLE_H__

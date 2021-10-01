@@ -30,7 +30,7 @@ uint16_t add_constant(Chunk* chunk, Value val) {
     exit(EX_SOFTWARE);
   }
 
-  write_value_array(&chunk->constants, val);
+  value_array_push(&chunk->constants, val);
   return chunk->constants.len - 1;
 }
 

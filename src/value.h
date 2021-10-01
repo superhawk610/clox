@@ -59,7 +59,9 @@ void init_value_array(ValueArray* arr);
 
 void free_value_array(ValueArray* arr);
 
-void write_value_array(ValueArray* arr, Value val);
+void value_array_push(ValueArray* arr, Value val);
+
+bool value_array_find_index(ValueArray* arr, Value val, uint16_t* out);
 
 bool values_equal(Value a, Value b);
 

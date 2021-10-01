@@ -48,7 +48,7 @@ ObjString* take_string(char* chars, size_t len) {
   ObjString* interned = table_find_string(&vm.strings, chars, len, hash);
   if (interned != NULL) {
     FREE_ARRAY(char, chars, len + 1); // if the we're using the interned copy, it's
-    return interned;                  // up to use to free the memory used by `chars`
+    return interned;                  // up to us to free the memory used by `chars`
   }                                   // (normally, the table would take ownership)
 
   return allocate_string(chars, len, hash);

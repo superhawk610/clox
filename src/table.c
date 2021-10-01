@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 #include "memory.h"
 #include "table.h"
@@ -43,14 +44,14 @@ static Entry* find_entry(Entry* entries, size_t cap, ObjString* key) {
   for (;;) {
     Entry* entry = &entries[bucket_idx];
 
-    if (entry->key == key) {         // found the key
-      return entry;
-    } else if (entry->key == NULL) {
+    if (entry->key == NULL) {
       if (IS_NIL(entry->value)) {    // empty entry
         return tombstone != NULL ? tombstone : entry;
       } else {                       // tombstone
         if (tombstone == NULL) tombstone = entry;
       }
+    } else if (entry->key == key) {
+      return entry;                  // found it!
     }
 
     bucket_idx = (bucket_idx + 1) % cap; // wrap around if we hit
@@ -79,12 +80,12 @@ static void adjust_capacity(Table* tab, size_t cap) {
     tab->len++; // ...then increment for non-tombstone entries
   }
 
+  // free previous storage
+  FREE_ARRAY(Entry, tab->entries, tab->cap);
+
   // update table to point at new storage
   tab->entries = entries;
   tab->cap = cap;
-
-  // free previous storage
-  FREE_ARRAY(Entry, tab->entries, tab->cap);
 }
 
 bool table_set(Table* tab, ObjString* key, Value val) {
@@ -155,6 +156,58 @@ void table_merge(Table* src, Table* dest) {
       table_set(dest, entry->key, entry->value);
     }
   }
+}
+
+static void dump_bucket(Entry* bucket, size_t cap, size_t bucket_idx) {
+  if (bucket_idx > 0) printf(" | ");
+  if (bucket->key != NULL) {
+    printf("<bucket_%zu> \\\"%s\\\"\\nhash: %zu", bucket_idx,
+                                                  bucket->key->chars,
+                                                  bucket->key->hash % cap);
+  } else if (IS_NIL(bucket->value)) {
+    printf("<bucket_%zu>", bucket_idx); // empty bucket
+  } else {
+    printf("<bucket_%zu> [T]", bucket_idx);
+  }
+}
+
+static void dump_bucket_value(Entry* bucket, size_t bucket_idx) {
+  if (bucket->key == NULL) return; // skip empty buckets and tombstones
+
+  printf("  value_%zu [label=\"", bucket_idx);
+  print_value(bucket->value);
+  printf("\" shape=circle]\n");
+  printf("  table:bucket_%zu -- value_%zu\n", bucket_idx, bucket_idx);
+}
+
+/*
+ * Generate a Graphviz graph that looks something like
+ *
+ *     graph {
+ *       node [shape=record]
+ *       table [label="<bucket_0> key | <bucket_1> | <bucket_2> [T]"]
+ *       value_0 [label="value" shape=circle]
+ *       table:bucket_0 -- value_0
+ *     }
+ *
+ */
+void dump_table(Table* tab) {
+  if (TABLE_IS_EMPTY(tab)) {
+    printf("graph { empty [shape=box] }");
+    return;
+  }
+
+  printf("graph {\n");
+  printf("  node [shape=record]\n");
+  printf("  table [label=\"");
+  for (size_t i = 0; i < tab->cap; i++) {
+    dump_bucket(&tab->entries[i], tab->cap, i); // heh, don't spill it
+  }
+  printf("\"]\n");
+  for (size_t i = 0; i < tab->cap; i++) {
+    dump_bucket_value(&tab->entries[i], i);
+  }
+  printf("}");
 }
 
 // ---
