@@ -2,6 +2,7 @@
 #define __CLOX_VM_H__
 
 #include "chunk.h"
+#include "lru.h"
 #include "table.h"
 #include "value.h"
 
@@ -14,9 +15,10 @@ typedef struct {
   Value  stack[STACK_MAX]; // value stack manipulator (used to track
   Value* stack_top;        // temporary values during execution)
 
-  Table globals; // storage for global variables at runtime
-  Table strings; // container for interned strings
-  Obj*  objects; // linked-list for naive garbage collection
+  LRUCache globals_cache; // LRU cache for hot global variables
+  Table    globals; // storage for global variables at runtime
+  Table    strings; // container for interned strings
+  Obj*     objects; // linked-list for naive garbage collection
 } VM;
 
 typedef enum {
