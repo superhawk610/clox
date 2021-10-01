@@ -64,6 +64,8 @@ bool table_get(Table* tab, ObjString* key, Value* out);
 /** @return true if the key was contained in the table */
 bool table_delete(Table* tab, ObjString* key);
 
+ObjString* table_find_string(Table* tab, const char* chars, size_t len, uint32_t hash);
+
 void table_merge(Table* src, Table* dest);
 
 #endif // __CLOX_TABLE_H__

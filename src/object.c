@@ -2,6 +2,7 @@
 #include <string.h>
 #include "memory.h"
 #include "object.h"
+#include "table.h"
 #include "vm.h"
 
 #define ALLOCATE_OBJ(type, obj_type) \
@@ -24,6 +25,9 @@ static ObjString* allocate_string(char* chars, size_t len, uint32_t hash) {
   str->chars = chars;
   str->hash = hash;
 
+  // intern the string
+  table_set(&vm.strings, str, NIL_VAL);
+
   return str;
 }
 
@@ -40,11 +44,23 @@ static uint32_t hash_string(const char* chars, size_t len) {
 
 ObjString* take_string(char* chars, size_t len) {
   uint32_t hash = hash_string(chars, len);
+
+  ObjString* interned = table_find_string(&vm.strings, chars, len, hash);
+  if (interned != NULL) {
+    FREE_ARRAY(char, chars, len + 1); // if the we're using the interned copy, it's
+    return interned;                  // up to use to free the memory used by `chars`
+  }                                   // (normally, the table would take ownership)
+
   return allocate_string(chars, len, hash);
 }
 
 ObjString* copy_string(const char* chars, size_t len) {
   uint32_t hash = hash_string(chars, len);
+
+  // if the string's already been interned, return that
+  ObjString* interned = table_find_string(&vm.strings, chars, len, hash);
+  if (interned != NULL) return interned;
+
   char* heap_chars = ALLOCATE(char, len + 1);
   memcpy(heap_chars, chars, len);
   heap_chars[len] = '\0'; // good ol' null-terminated strings

@@ -14,11 +14,14 @@ static void reset_stack() {
   vm.stack_top = vm.stack;
 }
 
-void init_vm() {
-  reset_stack();
+void init_vm() {           // initialize the VM:
+  reset_stack();           // 1. reset the stack
+  vm.objects = NULL;       // 2. initialize object storage (for GC)
+  init_table(&vm.strings); // 3. initialize interned string storage
 }
 
 void free_vm() {
+  free_table(&vm.strings);
   free_objects();
 }
 

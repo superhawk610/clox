@@ -34,15 +34,8 @@ bool values_equal(Value a, Value b) {
     case VAL_NIL:    return true;
     case VAL_NUMBER: return AS_NUMBER(a) == AS_NUMBER(b);
 
-    case VAL_OBJ: {
-      ObjString* a_str = AS_STRING(a);
-      ObjString* b_str = AS_STRING(b);
-
-      // equal strings must be the same length and contain
-      // the same sequence of characters
-      return a_str->len == b_str->len &&
-             memcmp(a_str->chars, b_str->chars, a_str->len) == 0;
-    }
+                     // duplicate interned strings will point at the same memory
+    case VAL_OBJ:    return AS_OBJ(a) == AS_OBJ(b);
 
     default: return false; // unreachable
   }

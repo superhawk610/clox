@@ -2,6 +2,7 @@
 #define __CLOX_VM_H__
 
 #include "chunk.h"
+#include "table.h"
 #include "value.h"
 
 #define STACK_MAX 256
@@ -13,7 +14,8 @@ typedef struct {
   Value  stack[STACK_MAX]; // value stack manipulator (used to track
   Value* stack_top;        // temporary values during execution)
 
-  Obj* objects; // linked-list for naive garbage collection
+  Table strings; // container for interned strings
+  Obj*  objects; // linked-list for naive garbage collection
 } VM;
 
 typedef enum {

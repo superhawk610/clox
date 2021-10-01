@@ -1,3 +1,4 @@
+#include <string.h>
 #include "memory.h"
 #include "table.h"
 
@@ -5,6 +6,7 @@
 #define TABLE_LOAD_MAX 0.75
 
 #define TOMBSTONE() (BOOL_VAL(true))
+#define TABLE_IS_EMPTY(tab) (tab->len == 0)
 
 void init_table(Table* tab) {
   tab->entries = NULL;
@@ -105,7 +107,7 @@ bool table_set(Table* tab, ObjString* key, Value val) {
 }
 
 bool table_get(Table* tab, ObjString* key, Value* out) {
-  if (tab->len == 0) return false; // empty tables don't contain anything
+  if (TABLE_IS_EMPTY(tab)) return false; // empty tables don't contain anything
 
   Entry* entry = find_entry(tab->entries, tab->cap, key);
   if (entry->key == NULL) return false; // key isn't contained in table
@@ -115,7 +117,7 @@ bool table_get(Table* tab, ObjString* key, Value* out) {
 }
 
 bool table_delete(Table* tab, ObjString* key) {
-  if (tab->len == 0) return false;
+  if (TABLE_IS_EMPTY(tab)) return false;
 
   Entry* entry = find_entry(tab->entries, tab->cap, key);
   if (entry->key == NULL) return false;
@@ -123,6 +125,27 @@ bool table_delete(Table* tab, ObjString* key) {
   entry->key = NULL;
   entry->value = TOMBSTONE();
   return true;
+}
+
+// similar to table_find_key, but searches with a raw C string
+ObjString* table_find_string(Table* tab, const char* chars, size_t len, uint32_t hash) {
+  if (TABLE_IS_EMPTY(tab)) return NULL;
+
+  uint32_t bucket_idx = hash % tab->cap;
+  for (;;) {
+    Entry* entry = &tab->entries[bucket_idx];
+
+    if (entry->key == NULL) {
+      // empty (non-tombstone) bucket, string must not be here
+      if (IS_NIL(entry->value)) return NULL;
+    } else if (entry->key->len == len &&
+               memcmp(entry->key->chars, chars, len) == 0) {
+      // key with same length and chars must be a match
+      return entry->key;
+    }
+
+    bucket_idx = (bucket_idx + 1) % tab->cap;
+  }
 }
 
 void table_merge(Table* src, Table* dest) {
@@ -137,3 +160,4 @@ void table_merge(Table* src, Table* dest) {
 // ---
 
 #undef TOMBSTONE
+#undef TABLE_IS_EMPTY
