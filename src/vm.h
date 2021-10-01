@@ -14,6 +14,7 @@ typedef struct {
   Value  stack[STACK_MAX]; // value stack manipulator (used to track
   Value* stack_top;        // temporary values during execution)
 
+  Table globals; // storage for global variables at runtime
   Table strings; // container for interned strings
   Obj*  objects; // linked-list for naive garbage collection
 } VM;

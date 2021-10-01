@@ -17,6 +17,15 @@ typedef enum {
   OP_TRUE,
   OP_FALSE,
 
+  // -- misc. --
+  OP_POP,
+  OP_DEF_GLOBAL,
+  OP_DEF_GLOBAL_LONG,
+  OP_GET_GLOBAL,
+  OP_GET_GLOBAL_LONG,
+  OP_SET_GLOBAL,
+  OP_SET_GLOBAL_LONG,
+
   // -- binary ops --
   OP_ADD,
   OP_SUBTRACT,
@@ -29,6 +38,9 @@ typedef enum {
   // -- unary ops --
   OP_NOT,
   OP_NEGATE,
+
+  // -- statements --
+  OP_PRINT,
 
   OP_RETURN,
 } OpCode;

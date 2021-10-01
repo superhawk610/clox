@@ -65,6 +65,22 @@ size_t disasm_instruction(Chunk* chunk, size_t offset) {
     case OP_FALSE:
       return simple_instr("OP_FALSE", offset);
 
+    // -- misc. --
+    case OP_POP:
+      return simple_instr("OP_POP", offset);
+    case OP_DEF_GLOBAL:
+      return const_instr("OP_DEF_GLOBAL", chunk, offset);
+    case OP_DEF_GLOBAL_LONG:
+      return const_long_instr("OP_DEF_GLOBAL_LONG", chunk, offset);
+    case OP_GET_GLOBAL:
+      return const_instr("OP_GET_GLOBAL", chunk, offset);
+    case OP_GET_GLOBAL_LONG:
+      return const_long_instr("OP_GET_GLOBAL_LONG", chunk, offset);
+    case OP_SET_GLOBAL:
+      return const_instr("OP_SET_GLOBAL", chunk, offset);
+    case OP_SET_GLOBAL_LONG:
+      return const_long_instr("OP_SET_GLOBAL_LONG", chunk, offset);
+
     // -- binary ops --
     case OP_ADD:
       return simple_instr("OP_ADD", offset);
@@ -86,6 +102,10 @@ size_t disasm_instruction(Chunk* chunk, size_t offset) {
       return simple_instr("OP_NOT", offset);
     case OP_NEGATE:
       return simple_instr("OP_NEGATE", offset);
+
+    // -- statements --
+    case OP_PRINT:
+      return simple_instr("OP_PRINT", offset);
 
     case OP_RETURN:
       return simple_instr("OP_RETURN", offset);
