@@ -16,17 +16,14 @@ static void reset_stack() {
   vm.stack_top = vm.stack;
 }
 
-void init_vm() {                     // initialize the VM:
-  reset_stack();                     // 1. reset the stack
-  vm.objects = NULL;                 // 2. initialize object storage (for GC)
-  init_cache(&vm.globals_cache,      // 3. initialize global vars LRU cache
-             GLOBALS_LRU_CACHE_CAP);
-  init_table(&vm.globals);           // 4. initialize global variable storage
-  init_table(&vm.strings);           // 5. initialize interned string storage
+void init_vm() {           // initialize the VM:
+  reset_stack();           // 1. reset the stack
+  vm.objects = NULL;       // 2. initialize object storage (for GC)
+  init_table(&vm.globals); // 3. initialize global variable storage
+  init_table(&vm.strings); // 4. initialize interned string storage
 }
 
 void free_vm() {
-  free_cache(&vm.globals_cache);
   free_table(&vm.globals);
   free_table(&vm.strings);
   free_objects();
@@ -150,8 +147,7 @@ static InterpretResult run() {
         ObjString* name = READ_STRING();
         Value val;
 
-        if (!cache_get(&vm.globals_cache, name, &val) && // try to read from cache first (fast),
-            !table_get(&vm.globals, name, &val)) {       // then fallback to table storage (slower)
+        if (!table_get(&vm.globals, name, &val)) {
           runtime_error("Undefined variable '%s'.", name->chars);
           return INTERPRET_RUNTIME_ERR;
         }
@@ -163,8 +159,7 @@ static InterpretResult run() {
         ObjString* name = READ_STRING_LONG();
         Value val;
 
-        if (!cache_get(&vm.globals_cache, name, &val) &&
-            !table_get(&vm.globals, name, &val)) {
+        if (!table_get(&vm.globals, name, &val)) {
           runtime_error("Undefined variable '%s'.", name->chars);
           return INTERPRET_RUNTIME_ERR;
         }
@@ -182,8 +177,6 @@ static InterpretResult run() {
           return INTERPRET_RUNTIME_ERR;
         }
 
-        cache_put(&vm.globals_cache, name, peek(0));
-
         break;
       }
       case OP_SET_GLOBAL_LONG: {
@@ -194,8 +187,6 @@ static InterpretResult run() {
           runtime_error("Undefined variable '%s'.", name->chars);
           return INTERPRET_RUNTIME_ERR;
         }
-
-        cache_put(&vm.globals_cache, name, peek(0));
 
         break;
       }
