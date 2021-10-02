@@ -386,7 +386,7 @@ static void binary(bool can_assign) {
   ParseRule* rule = get_rule(op_type);
 
   // parse the right operand with 1 _higher_ precedence so that
-  // binary operations are left-associtive; in other words, we want
+  // binary operations are left-associative; in other words, we want
   //
   //     1 + 2 + 3 + 4
   //
