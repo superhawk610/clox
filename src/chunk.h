@@ -19,6 +19,8 @@ typedef enum {
 
   // -- misc. --
   OP_POP,
+  OP_GET_LOCAL,
+  OP_SET_LOCAL,
   OP_DEF_GLOBAL,
   OP_DEF_GLOBAL_LONG,
   OP_GET_GLOBAL,

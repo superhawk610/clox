@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "chunk.h"
 #include "compiler.h"
 #include "scanner.h"
@@ -8,6 +9,9 @@
 #ifdef DEBUG_PRINT_CODE
 #include "debug.h"
 #endif
+
+#define DEPTH_UNITIALIZED -1
+#define UNRESOLVED_LOCAL -1
 
 typedef struct {
   Token current;
@@ -39,7 +43,26 @@ typedef struct {
   Precedence precedence;
 } ParseRule;
 
+// Local variables are stored on the stack and resolved
+// at runtime by walking and comparing by `name`.
+//
+// Locals are associated with the _scope_ in which they
+// were defined, marked by their `depth`. The top-level
+// scope has a depth of 0, and each block created within
+// that increases the depth by 1.
+typedef struct {
+  Token name;
+  int depth;
+} Local;
+
+typedef struct {
+  Local locals[UINT8_COUNT];
+  int local_count;
+  int scope_depth;
+} Compiler;
+
 Parser parser;
+Compiler* current = NULL;
 Chunk* compiling_chunk;
 
 // down the road, chunks may live elsewhere
@@ -139,6 +162,12 @@ static void emit_return() {
   emit_byte(OP_RETURN);
 }
 
+static void init_compiler(Compiler* compiler) {
+  compiler->local_count = 0;
+  compiler->scope_depth = 0;
+  current = compiler;
+}
+
 static void end_compiler() {
   emit_return();
 
@@ -147,6 +176,21 @@ static void end_compiler() {
     disasm_chunk(current_chunk(), "code [debug]");
   }
 #endif
+}
+
+static void begin_scope() {
+  current->scope_depth++;
+}
+
+static void end_scope() {
+  current->scope_depth--;
+
+  // discard all scoped locals from the stack
+  while (current->local_count > 0 &&
+         current->locals[current->local_count - 1].depth > current->scope_depth) {
+    emit_byte(OP_POP);
+    current->local_count--;
+  }
 }
 
 static void parse_precedence(Precedence prec);
@@ -191,14 +235,91 @@ static uint16_t identifier_constant(Token* name) {
   return found ? existing : add_constant(current_chunk(), str);
 }
 
-static void named_variable(Token name, bool can_assign) {
-  uint16_t arg = identifier_constant(&name);
+static bool identifiers_equal(Token* a, Token* b) {
+  if (a->len != b->len) return false;
+  return memcmp(a->start, b->start, a->len) == 0;
+}
 
+static int resolve_local(Compiler* compiler, Token* name) {
+  for (int i = compiler->local_count - 1; i >= 0; i--) {
+    Local* local = &compiler->locals[i];
+    if (identifiers_equal(name, &local->name)) {
+      if (local->depth == DEPTH_UNITIALIZED) {
+        error("Can't read local variable in its own initializer.");
+      }
+
+      return i;
+    }
+  }
+
+  return UNRESOLVED_LOCAL;
+}
+
+static void add_local(Token name) {
+  // we could dynamically allocate additional storage for locals, but
+  // for now let's just error out (256 should be a reasonable default)
+  if (current->local_count == UINT8_COUNT) {
+    error("Too many local variables in function.");
+    return;
+  }
+
+  Local* local = &current->locals[current->local_count++];
+  local->name = name;
+  local->depth = DEPTH_UNITIALIZED; // locals are marked as uninitialized until
+                                    // their initializer expression has been parsed,
+                                    // so that this sort of thing is marked as invalid
+                                    //
+                                    //     var a = "outer";
+                                    //     {
+                                    //       var a = a;
+                                    //     }
+                                    //
+}
+
+static void declare_variable() {
+  // no need to declare globals, as they're embedded in the bytecode
+  if (current->scope_depth == 0) return;
+
+  Token* name = &parser.previous;
+
+  for (int i = current->local_count - 1; i >= 0; i--) {
+    Local* local = &current->locals[i];             // starting at the top of the stack, walk
+    if (local->depth != DEPTH_UNITIALIZED &&        // backwards and make sure this is the first
+        local->depth < current->scope_depth) break; // time we've seen this declaration in this block
+
+    if (identifiers_equal(name, &local->name)) {
+      error("Cannot redeclare block-scoped variable.");
+    }
+  }
+
+  add_local(*name);
+}
+
+static void named_local(uint8_t arg, bool can_assign) {
   if (can_assign && match(TOKEN_EQUAL)) { // if followed by `=` (i.e. a = 1),
     expression();                         // it's variable assignment...
-    emit_constant_op(arg, OP_SET_GLOBAL, OP_SET_GLOBAL_LONG);
+    emit_bytes(OP_SET_LOCAL, arg);
   } else {                                // ...otherwise, it's just variable access
+    emit_bytes(OP_GET_LOCAL, arg);
+  }
+}
+
+static void named_global(uint16_t arg, bool can_assign) {
+  if (can_assign && match(TOKEN_EQUAL)) {
+    expression();
+    emit_constant_op(arg, OP_SET_GLOBAL, OP_SET_GLOBAL_LONG);
+  } else {
     emit_constant_op(arg, OP_GET_GLOBAL, OP_GET_GLOBAL_LONG);
+  }
+}
+
+static void named_variable(Token name, bool can_assign) {
+  int local_arg = resolve_local(current, &name);
+  if (local_arg != UNRESOLVED_LOCAL) {
+    named_local((uint8_t) local_arg, can_assign);
+  } else {
+    uint16_t arg = identifier_constant(&name);
+    named_global(arg, can_assign);
   }
 }
 
@@ -288,10 +409,25 @@ static void parse_precedence(Precedence prec) {
 
 static uint16_t parse_variable(const char* err_message) {
   consume(TOKEN_IDENTIFIER, err_message);
+
+  declare_variable();                     // if the variable is local, no need to
+  if (current->scope_depth > 0) return 0; // store it in the constants table, just
+                                          // return a dummy value
+
   return identifier_constant(&parser.previous);
 }
 
+static inline void mark_initialized() {
+  current->locals[current->local_count - 1].depth = current->scope_depth;
+}
+
 static void define_variable(uint16_t global) {
+  // if defining a local, it's already on top of the stack
+  if (current->scope_depth > 0) {
+    mark_initialized();
+    return;
+  }
+
   emit_constant_op(global, OP_DEF_GLOBAL, OP_DEF_GLOBAL_LONG);
 }
 
@@ -299,6 +435,14 @@ static void expression() {
   parse_precedence(PREC_ASSIGNMENT); // parse with the lowest precedence, so
                                      // all higher-precedence expressions are
                                      // parsed as well
+}
+
+static void block() {
+  while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+    declaration();
+  }
+
+  consume(TOKEN_RIGHT_BRACE, "Expected '}' after block.");
 }
 
 static void expression_statement() {
@@ -314,8 +458,17 @@ static void print_statement() {
 }
 
 static void statement() {
-  if (match(TOKEN_PRINT)) print_statement();
-  else                    expression_statement();
+  if (match(TOKEN_PRINT))
+    print_statement();
+
+  else if (match(TOKEN_LEFT_BRACE)) {
+    begin_scope();
+    block();
+    end_scope();
+  }
+
+  else
+    expression_statement();
 }
 
 static void synchronize() {
@@ -471,9 +624,12 @@ ParseRule rules[] = {
 static ParseRule* get_rule(TokenType type) { return &rules[type]; }
 
 bool compile(const char* source, Chunk* chunk) {
+  Compiler compiler;
+
   compiling_chunk = chunk;
 
   init_scanner(source);
+  init_compiler(&compiler);
   init_parser();
 
   advance();
@@ -486,3 +642,8 @@ bool compile(const char* source, Chunk* chunk) {
 
   return !parser.had_error;
 }
+
+// ---
+
+#undef DEPTH_UNITIALIZED
+#undef UNRESOLVED_LOCAL

@@ -30,6 +30,13 @@ static size_t const_long_instr(const char* name, Chunk* chunk, size_t offset) {
   return offset + 3; // we consume the instr and 2x const value bytes
 }
 
+static size_t byte_instr(const char* name, Chunk* chunk, size_t offset) {
+  uint8_t slot = chunk->code[offset + 1];
+  printf("%-16s %4d\n", name, slot);
+
+  return offset + 2;
+}
+
 static size_t simple_instr(const char* name, size_t offset) {
   printf("%s\n", name);
 
@@ -68,6 +75,10 @@ size_t disasm_instruction(Chunk* chunk, size_t offset) {
     // -- misc. --
     case OP_POP:
       return simple_instr("OP_POP", offset);
+    case OP_GET_LOCAL:
+      return byte_instr("OP_GET_LOCAL", chunk, offset);
+    case OP_SET_LOCAL:
+      return byte_instr("OP_SET_LOCAL", chunk, offset);
     case OP_DEF_GLOBAL:
       return const_instr("OP_DEF_GLOBAL", chunk, offset);
     case OP_DEF_GLOBAL_LONG:
