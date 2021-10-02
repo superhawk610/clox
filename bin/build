@@ -3,6 +3,7 @@
 CC="gcc"
 CFLAGS="-std=c17 -o main"
 SRC="src/*.c"
+CLIBS="-lreadline"
 
 while [ $# -gt 0 ]; do
   key="$1"
@@ -10,7 +11,10 @@ while [ $# -gt 0 ]; do
   case $key in
     -d|--debug)
       CFLAGS="$CFLAGS -g -DDEBUG_TRACE_EXEC -DDEBUG_PRINT_CODE"
-      DEBUG=1
+      shift
+      ;;
+    -v|--verbose)
+      CFLAGS="$CFLAGS -v"
       shift
       ;;
     *)
@@ -20,4 +24,4 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-${CC} ${CFLAGS} ${SRC}
+${CC} ${CFLAGS} ${SRC} ${CLIBS}

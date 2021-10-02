@@ -4,22 +4,8 @@
 #include "common.h"
 #include "chunk.h"
 #include "debug.h"
+#include "repl.h"
 #include "vm.h"
-
-static void repl() {
-  char line[1024];
-
-  for (;;) {
-    printf("> ");
-
-    if (!fgets(line, sizeof(line), stdin)) {
-      printf("\n");
-      break;
-    }
-
-    interpret(line);
-  }
-}
 
 static char* read_file(const char* path) {
   FILE* f = fopen(path, "rb");
@@ -59,8 +45,6 @@ static void run_file(const char* path) {
   if (res == INTERPRET_COMPILE_ERR) exit(EX_DATAERR);
   if (res == INTERPRET_RUNTIME_ERR) exit(EX_SOFTWARE);
 }
-
-#include "table.h"
 
 #ifndef __TESTING__
 int main(int argc, const char* argv[]) {

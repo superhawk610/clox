@@ -1,8 +1,9 @@
 #!/bin/sh
 
 CC="gcc"
-CFLAGS="-std=c17 -g -o __test__ -D__TESTING__"
+CFLAGS="-std=c17 -g -lreadline -o __test__ -D__TESTING__"
 SRC="src/*.c test/*.c"
+CLIBS="-lreadline"
 
 while [ $# -gt 0 ]; do
   key="$1"
@@ -20,6 +21,6 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-${CC} ${CFLAGS} ${SRC} && ./__test__
+${CC} ${CFLAGS} ${SRC} ${CLIBS} && ./__test__
 
 rm -rf ./__test__

@@ -22,3 +22,12 @@ Run the test suite
 ```plain
 $ ./bin/test
 ```
+
+## Dependencies
+
+This projects depends on `readline`. To build, you'll need to install the C
+headers:
+
+```plain
+$ sudo apt install libreadline-dev
+```
