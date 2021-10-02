@@ -162,6 +162,18 @@ static int emit_jump(uint8_t instr) {
   return current_chunk()->len - 2;
 }
 
+// emit a loop instruction that will jump back to `offset` in
+// the bytecode (adjusted by 2 to account for OP_LOOP's operand)
+static void emit_loop(int loop_start) {
+  emit_byte(OP_LOOP);
+
+  int offset = (int) current_chunk()->len - loop_start + 2;
+  if (offset > UINT16_MAX) error("Loop body too large.");
+
+  emit_byte((offset >> 8) & 0xff);
+  emit_byte(offset & 0xff);
+}
+
 //
 //     OP_JUMP
 //       JUMP_TARGET_HI  <-- offset points here
@@ -560,6 +572,36 @@ static void if_statement() {
   patch_jump(else_jump);
 }
 
+// while loops will generate this control flow
+//
+//      <condition expression> <-┐
+//                               |
+//  ┌── OP_JUMP_IF_FALSE         |
+//  |   OP_POP                   |
+//  |                            |
+//  |   <body statement>         |
+//  |                            |
+//  |   OP_LOOP ─────────────────┘
+//  └-> OP_POP
+//
+//      resume execution...
+//
+static void while_statement() {
+  int loop_start = (int) current_chunk()->len;
+
+  consume(TOKEN_LEFT_PAREN, "Expected '(' after 'while'.");
+  expression();
+  consume(TOKEN_RIGHT_PAREN, "Expected ')' after condition.");
+
+  int exit_jump = emit_jump(OP_JUMP_IF_FALSE);
+  emit_byte(OP_POP);
+  statement();
+  emit_loop(loop_start);
+
+  patch_jump(exit_jump);
+  emit_byte(OP_POP);
+}
+
 static void print_statement() {
   expression(); // evaluate the `print` statement's operand, placing it on the stack
   consume(TOKEN_SEMICOLON, "Expected ';' after value.");
@@ -572,6 +614,9 @@ static void statement() {
 
   else if (match(TOKEN_IF))
     if_statement();
+
+  else if (match(TOKEN_WHILE))
+    while_statement();
 
   else if (match(TOKEN_LEFT_BRACE)) {
     begin_scope();

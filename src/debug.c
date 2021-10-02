@@ -130,9 +130,11 @@ size_t disasm_instruction(Chunk* chunk, size_t offset) {
       return jump_instr("OP_JUMP", 1, chunk, offset);
     case OP_JUMP_IF_FALSE:
       return jump_instr("OP_JUMP_IF_FALSE", 1, chunk, offset);
-
+    case OP_LOOP:
+      return jump_instr("OP_LOOP", -1, chunk, offset);
     case OP_RETURN:
       return simple_instr("OP_RETURN", offset);
+
     default:
       printf("unknown opcode %d\n", instr);
       return offset + 1; // advance by a single byte by default
