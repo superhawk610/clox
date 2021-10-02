@@ -44,6 +44,10 @@ typedef enum {
   // -- statements --
   OP_PRINT,
 
+  // -- control flow --
+  OP_JUMP,
+  OP_JUMP_IF_FALSE,
+
   OP_RETURN,
 } OpCode;
 

@@ -37,6 +37,13 @@ static size_t byte_instr(const char* name, Chunk* chunk, size_t offset) {
   return offset + 2;
 }
 
+static size_t jump_instr(const char* name, int sign, Chunk* chunk, size_t offset) {
+  uint16_t jump = (uint16_t) (chunk->code[offset + 1] << 8) | chunk->code[offset + 2];
+  printf("%-16s %4zu -> %zu\n", name, offset, offset + 3 + sign * jump);
+
+  return offset + 3;
+}
+
 static size_t simple_instr(const char* name, size_t offset) {
   printf("%s\n", name);
 
@@ -117,6 +124,12 @@ size_t disasm_instruction(Chunk* chunk, size_t offset) {
     // -- statements --
     case OP_PRINT:
       return simple_instr("OP_PRINT", offset);
+
+    // -- control flow --
+    case OP_JUMP:
+      return jump_instr("OP_JUMP", 1, chunk, offset);
+    case OP_JUMP_IF_FALSE:
+      return jump_instr("OP_JUMP_IF_FALSE", 1, chunk, offset);
 
     case OP_RETURN:
       return simple_instr("OP_RETURN", offset);

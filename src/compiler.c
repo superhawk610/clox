@@ -153,6 +153,38 @@ static void emit_constant_op(uint16_t constant, OpCode short_op, OpCode long_op)
   }
 }
 
+// emit a jump instruction, and return the bytecode offset of its
+// target operand to be patched once we know how far to jump
+static int emit_jump(uint8_t instr) {
+  emit_byte(instr);
+  emit_byte(0xff);
+  emit_byte(0xff);
+  return current_chunk()->len - 2;
+}
+
+//
+//     OP_JUMP
+//       JUMP_TARGET_HI  <-- offset points here
+//       JUMP_TARGET_LO
+//                       <-- ip will be here after reading OP_JUMP
+//     ... (other ops)
+//
+//     (you are here)    <-- current_chunk()->len
+//
+static void patch_jump(int offset) {
+  // current_chunk()->len - offset gives number of bytes to jump over,
+  // then subtract 2 to account for the JUMP_TARGET_* bytes (they will
+  // already have been read by the time the VM is performing the jump)
+  int jump = current_chunk()->len - offset - 2;
+
+  if (jump > UINT16_MAX) {
+    error("Too much code to jump over.");
+  }
+
+  current_chunk()->code[offset] = (jump >> 8) & 0xff;
+  current_chunk()->code[offset + 1] = jump & 0xff;
+}
+
 static void emit_constant(Value val) {
   uint16_t constant = add_constant(current_chunk(), val);
   emit_constant_op(constant, OP_CONST, OP_CONST_LONG);
@@ -451,6 +483,40 @@ static void expression_statement() {
   emit_byte(OP_POP); // evaluate the expression, then discard the result
 }
 
+// if statements will generate this control flow
+//
+//         <condition expression>
+//
+//     +-- OP_JUMP_IF_FALSE
+//     |   OP_POP
+//     |
+//     |   <then branch statement>
+//     |
+//   +-|-- OP_JUMP
+//   | +-> OP_POP
+//   |
+//   |     <else branch statement>
+//   |
+//   +---> resume execution...
+//
+static void if_statement() {
+  consume(TOKEN_LEFT_PAREN, "Expected '(' after 'if'.");
+  expression();
+  consume(TOKEN_RIGHT_PAREN, "Expected ')' after condition.");
+
+  int then_jump = emit_jump(OP_JUMP_IF_FALSE);
+  emit_byte(OP_POP); // pop the condition expression from the stack
+  statement();
+
+  int else_jump = emit_jump(OP_JUMP);
+
+  patch_jump(then_jump);
+  emit_byte(OP_POP);
+
+  if (match(TOKEN_ELSE)) statement();
+  patch_jump(else_jump);
+}
+
 static void print_statement() {
   expression(); // evaluate the `print` statement's operand, placing it on the stack
   consume(TOKEN_SEMICOLON, "Expected ';' after value.");
@@ -460,6 +526,9 @@ static void print_statement() {
 static void statement() {
   if (match(TOKEN_PRINT))
     print_statement();
+
+  else if (match(TOKEN_IF))
+    if_statement();
 
   else if (match(TOKEN_LEFT_BRACE)) {
     begin_scope();
