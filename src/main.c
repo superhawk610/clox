@@ -5,6 +5,7 @@
 #include "chunk.h"
 #include "debug.h"
 #include "repl.h"
+#include "signal_handlers.h"
 #include "vm.h"
 
 static char* read_file(const char* path) {
@@ -49,6 +50,8 @@ static void run_file(const char* path) {
 #ifndef __TESTING__
 int main(int argc, const char* argv[]) {
 #define LINE_NO 123
+
+  install_signal_handlers();
 
   init_vm();
 
