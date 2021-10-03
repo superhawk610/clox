@@ -22,9 +22,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-set -x
-
 mkdir -p build
+
+set -x
 
 ${CC} ${CFLAGS} ${SRC} ${CLIBS}
 

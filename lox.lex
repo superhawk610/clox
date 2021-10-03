@@ -10,9 +10,14 @@
 
 %option noyywrap
 
+ALPHA       [a-zA-Z_]
+DIGIT       [0-9]
+WHITESPACE  [ \n\t\r]
+
 %%
 
-[ \n\t\r]+ { /* ignore whitespace */ }
+{WHITESPACE}+  { /* ignore whitespace */ }
 
-[0-9]+     { printf("  => %s\n", yytext); }
-[a-zA-Z]+  { printf("  => %s\n", yytext); }
+{DIGIT}+(\.{DIGIT}+)?      { printf("  (number)=> %s\n", yytext); }
+\"[^\"]+\"                 { printf("  (string)=> %s\n", yytext); }
+{ALPHA}({ALPHA}|{DIGIT})*  { printf("   (ident)=> %s\n", yytext); }

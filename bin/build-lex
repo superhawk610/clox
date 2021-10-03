@@ -1,18 +1,20 @@
 #!/bin/bash
-set -ex
+set -e
 
 CC="gcc"
-CFLAGS="-std=c17 -o build/lox"
-SRC="lex.yy.c lox.c"
+CFLAGS="-I. -std=c17 -o build/lox"
+SRC="build/lex.yy.c build/lox.c"
 
 mkdir -p build
+
+set -x
 
 # first, clean up any previously generated files
 rm -f build/lex.yy.c build/lox.c build/lox.h
 
 # then, generate new files
 flex --outfile=build/lex.yy.c lox.lex
-bison --defines=build/lox.h --output=build/lox.c lox.yacc
+bison --defines=build/lox.h --output=build/lox.c lox.y
 
 # finally, compile it all
 ${CC} ${CFLAGS} ${SRC}
