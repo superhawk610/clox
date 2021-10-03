@@ -11,7 +11,7 @@
   #include <math.h>
   #include <ctype.h>
 
-  int yylex();
+  extern int yylex();
   void yyerror(const char* err);
 %}
 
@@ -27,7 +27,8 @@ input:
 
 line:
   '\n'
-| exp '\n'  { printf("\t%.10g\n", $1); }
+| exp '\n'   { printf("\t%.10g\n", $1); }
+| error '\n' { yyerrok;                 }
 
 exp:
   NUM
@@ -35,6 +36,7 @@ exp:
 
 %% // -- epilogue --
 
+/*
 int yylex() {
   int c = getchar();
 
@@ -54,6 +56,7 @@ int yylex() {
   else
     return c;
 }
+*/
 
 void yyerror(const char* err) {
   fprintf(stderr, "%s\n", err);

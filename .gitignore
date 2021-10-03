@@ -1,7 +1,2 @@
 /.ccls
-
-/main
-/__test__
-
-/lox
-/lox.tab.*
+/build

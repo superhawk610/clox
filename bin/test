@@ -1,11 +1,12 @@
-#!/bin/sh
+#!/bin/bash
+set -e
 
 CC="gcc"
-CFLAGS="-std=c17 -g -lreadline -o __test__ -D__TESTING__"
+CFLAGS="-std=c17 -g -lreadline -o build/__test__ -D__TESTING__"
 SRC="src/*.c test/*.c"
 CLIBS="-lreadline"
 
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
   key="$1"
 
   case $key in
@@ -21,6 +22,11 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-${CC} ${CFLAGS} ${SRC} ${CLIBS} && ./__test__
+set -x
 
+mkdir -p build
+
+${CC} ${CFLAGS} ${SRC} ${CLIBS}
+
+build/__test__
 rm -rf ./__test__

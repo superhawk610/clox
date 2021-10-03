@@ -1,11 +1,12 @@
-#!/bin/sh
+#!/bin/bash
+set -e
 
 CC="gcc"
-CFLAGS="-std=c17 -o main"
+CFLAGS="-std=c17 -o build/main"
 SRC="src/*.c"
 CLIBS="-lreadline"
 
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
   key="$1"
 
   case $key in
@@ -24,4 +25,10 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+set -x
+
+mkdir -p build
+
 ${CC} ${CFLAGS} ${SRC} ${CLIBS}
+
+echo -e "\nsuccessfully built build/main"
