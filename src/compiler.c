@@ -242,6 +242,7 @@ static ParseRule* get_rule(TokenType type);
 static void expression();
 static void statement();
 static void declaration();
+static void var_declaration();
 
 static void grouping(bool can_assign) {
   // the opening TOKEN_LEFT_PAREN has just been consumed
@@ -602,6 +603,78 @@ static void while_statement() {
   emit_byte(OP_POP);
 }
 
+// for loops will generate this control flow
+//
+//         <initializer clause>
+//
+//         <condition expression> <-─┐
+//                                   |
+//     ┌── OP_JUMP_IF_FALSE          |    * if the condition expression is omitted,
+//     |   OP_POP                    |      the OP_JUMP_IF_FALSE will be as well and
+//   ┌─┼── OP_JUMP                   |      the loop will effectively be infinite
+//   | |                             |
+//   | |   <increment expression> <-─┼─┐  * if the increment clause is omitted,
+//   | |                             | |    the OP_POP and OP_LOOP ops will be
+//   | |   OP_POP                    | |    as well, and the body loop will jump
+//   | |   OP_LOOP ──────────────────┘ |    directly to the condition expression
+//   | |                               |
+//   └─┼-> <body statement>            |
+//     |                               |
+//     |   OP_LOOP ────────────────────┘
+//     └-> OP_POP
+//
+//         resume execution...
+//
+static void for_statement() {
+  begin_scope();
+
+  consume(TOKEN_LEFT_PAREN, "Expected '(' after 'for'.");
+
+  // (optionally) parse initializer clause
+  if (match(TOKEN_SEMICOLON)) { /* do nothing */ }
+  else if (match(TOKEN_VAR))  var_declaration();
+  else                        expression_statement();
+
+  int loop_start = (int) current_chunk()->len;
+  int exit_jump = -1;
+
+  // (optionally) parse condition clause
+  if (!match(TOKEN_SEMICOLON)) {
+    expression();
+    consume(TOKEN_SEMICOLON, "Expected ';' after loop condition.");
+
+    exit_jump = emit_jump(OP_JUMP_IF_FALSE);
+    emit_byte(OP_POP);
+  }
+
+  // (optionally) parse increment clause
+  if (!match(TOKEN_RIGHT_PAREN)) {
+    int body_jump = emit_jump(OP_JUMP);
+    int increment_start = current_chunk()->len;
+
+    expression();
+    emit_byte(OP_POP);
+    consume(TOKEN_RIGHT_PAREN, "Expected ')' after for clauses.");
+
+    emit_loop(loop_start);
+    loop_start = increment_start;
+    patch_jump(body_jump);
+  }
+
+  statement();
+  emit_loop(loop_start);
+
+  if (exit_jump != -1) {
+    patch_jump(exit_jump);
+    emit_byte(OP_POP);
+  }
+
+  end_scope();
+}
+
+// TODO: Add support for `switch`, `break`, and `continue`
+// (see https://craftinginterpreters.com/jumping-back-and-forth.html#challenges)
+
 static void print_statement() {
   expression(); // evaluate the `print` statement's operand, placing it on the stack
   consume(TOKEN_SEMICOLON, "Expected ';' after value.");
@@ -617,6 +690,9 @@ static void statement() {
 
   else if (match(TOKEN_WHILE))
     while_statement();
+
+  else if (match(TOKEN_FOR))
+    for_statement();
 
   else if (match(TOKEN_LEFT_BRACE)) {
     begin_scope();
