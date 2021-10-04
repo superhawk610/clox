@@ -14,6 +14,7 @@ VM vm; // global singleton, since we don't support parallel VMs
 
 static void reset_stack() {
   vm.stack_top = vm.stack;
+  vm.frame_count = 0;
 }
 
 void init_vm() {           // initialize the VM:
@@ -75,10 +76,12 @@ static void concatenate_strings() {
 }
 
 static InterpretResult run() {
-#define READ_BYTE() (*vm.ip++)
-#define READ_CONST() (vm.chunk->constants.values[READ_BYTE()])
-#define READ_CONST_LONG() (vm.chunk->constants.values[(READ_BYTE() << 8) | READ_BYTE()])
-#define READ_SHORT() (vm.ip += 2, (uint16_t)((vm.ip[-2] << 8) | vm.ip[-1]))
+  StackFrame* frame = &vm.frames[vm.frame_count - 1];
+
+#define READ_BYTE() (*frame->ip++)
+#define READ_CONST() (frame->function->chunk.constants.values[READ_BYTE()])
+#define READ_CONST_LONG() (frame->function->chunk.constants.values[(READ_BYTE() << 8) | READ_BYTE()])
+#define READ_SHORT() (frame->ip += 2, (uint16_t)((frame->ip[-2] << 8) | frame->ip[-1]))
 #define READ_STRING() AS_STRING(READ_CONST())
 #define READ_STRING_LONG() AS_STRING(READ_CONST_LONG())
 

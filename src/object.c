@@ -42,6 +42,16 @@ static uint32_t hash_string(const char* chars, size_t len) {
   return hash;
 }
 
+ObjFunction* new_function() {
+  ObjFunction* func = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
+
+  func->arity = 0;
+  func->name = NULL;
+  init_chunk(&func->chunk); // heh, func chunk
+
+  return func;
+}
+
 ObjString* take_string(char* chars, size_t len) {
   uint32_t hash = hash_string(chars, len);
 
@@ -68,8 +78,20 @@ ObjString* copy_string(const char* chars, size_t len) {
   return allocate_string(heap_chars, len, hash);
 }
 
+static void print_function(ObjFunction* func) {
+  if (func->name == NULL) { // the top-level "function" has no name
+    printf("<script>");
+    return;
+  }
+
+  printf("<fn %s>", func->name->chars);
+}
+
 void print_object(Value val) {
   switch (OBJ_TYPE(val)) {
+    case OBJ_FUNCTION:
+      print_function(AS_FUNCTION(val));
+      break;
     case OBJ_STRING:
       printf("%s", AS_CSTRING(val));
       break;

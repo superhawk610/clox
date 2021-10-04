@@ -2,16 +2,20 @@
 #define __CLOX_OBJECT_H__
 
 #include "common.h"
+#include "chunk.h"
 #include "value.h"
 
-#define OBJ_TYPE(val)   (AS_OBJ(val)->type)
+#define OBJ_TYPE(val)     (AS_OBJ(val)->type)
 
-#define IS_STRING(val)  is_obj_type(val, OBJ_STRING)
+#define IS_FUNCTION(val)  is_obj_type(val, OBJ_FUNCTION)
+#define IS_STRING(val)    is_obj_type(val, OBJ_STRING)
 
-#define AS_STRING(val)  ((ObjString*) AS_OBJ(val))
-#define AS_CSTRING(val) (((ObjString*) AS_OBJ(val))->chars)
+#define AS_FUNCTION(val)  ((ObjFunction*) AS_OBJ(val))
+#define AS_STRING(val)    ((ObjString*) AS_OBJ(val))
+#define AS_CSTRING(val)   (((ObjString*) AS_OBJ(val))->chars)
 
 typedef enum {
+  OBJ_FUNCTION,
   OBJ_STRING,
 } ObjType;
 
@@ -41,6 +45,13 @@ struct Obj {
   struct Obj* next; // track usage for naive garbage collection
 };
 
+typedef struct {
+  Obj obj;
+  int arity;
+  Chunk chunk;
+  ObjString* name;
+} ObjFunction;
+
 struct ObjString {
   Obj obj;
   size_t len;
@@ -48,6 +59,8 @@ struct ObjString {
 
   uint32_t hash; // eagerly-computed hash
 };
+
+ObjFunction* new_function();
 
 ObjString* take_string(char* chars, size_t len);
 
