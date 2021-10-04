@@ -1,8 +1,11 @@
 #!/bin/bash
 set -e
 
+# _XOPEN_SOURCE is required for `fileno` to be defined
+# (see https://stackoverflow.com/questions/44622827/why-am-i-getting-error-implicit-declaration-of-function-fileno-when-i-try-t and https://stackoverflow.com/questions/5378778/what-does-d-xopen-source-do-mean)
+
 CC="gcc"
-CFLAGS="-I. -std=c17 -o build/lox"
+CFLAGS="-I. -std=c17 -ggdb -D_XOPEN_SOURCE=700 -o build/lox"
 SRC="build/lex.yy.c build/lox.c"
 
 mkdir -p build
@@ -13,7 +16,7 @@ set -x
 rm -f build/lex.yy.c build/lox.c build/lox.h
 
 # then, generate new files
-flex --outfile=build/lex.yy.c lox.lex
+flex --outfile=build/lex.yy.c lox.l
 bison --defines=build/lox.h --output=build/lox.c lox.y
 
 # finally, compile it all

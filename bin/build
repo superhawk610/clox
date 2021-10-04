@@ -11,7 +11,7 @@ while [[ $# -gt 0 ]]; do
 
   case $key in
     -d|--debug)
-      CFLAGS="$CFLAGS -g -DDEBUG_BACKTRACE -DDEBUG_TRACE_EXEC -DDEBUG_PRINT_CODE"
+      CFLAGS="$CFLAGS -ggdb -DDEBUG_BACKTRACE -DDEBUG_TRACE_EXEC -DDEBUG_PRINT_CODE"
       shift
       ;;
     -v|--verbose)

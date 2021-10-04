@@ -4,31 +4,68 @@
  */
 
 %{
+  #include <stdarg.h>
   #include <stdio.h>
   #include <stdlib.h>
   #include <math.h>
   #include <ctype.h>
 
+  extern int yylineno;
   extern int yylex();
-  void yyerror(const char* err);
 %}
 
-%define api.value.type {double}
-%token NUM
+%code provides {
+  void yyerror(const char* msg, ...);
+}
+
+%locations
+
+%define api.value.type union
+
+%define api.token.prefix {TOKEN_}
+
+%define parse.error verbose
+
+%token
+
+  // TODO: add remaining tokens
+
+  EOL    "end-of-line"
+  EOF 0  "end-of-file"
+;
+
+%token <double> NUMBER "number"
+
+%token <char*> STRING "string"
+%printer { fprintf(yyo, "\"%s\"", $$); } <char*>
+%destructor { free($$); } <char*>
+
+%token <char*> IDENTIFIER "identifier"
 
 %% // -- grammar rules --
 
-input:
-  %empty
-| input line
-;
+input : %empty
+      | input line ;
 
-line:
-  '\n'
-| exp '\n'   { printf("\t%.10g\n", $1); }
-| error '\n' { yyerrok;                 }
+line  : eol
+      | exps eol
+      | error eol { yyerrok; }
 
-program : declaration* EOF ; // not exactly sure how yacc handles EOF
+eol   : EOF
+      | EOL ;
+
+exps  : exp
+      | exps exp ;
+
+exp   : NUMBER
+      | STRING
+      | IDENTIFIER ;
+
+// TODO: Continue porting grammar
+// (see https://github.com/akimd/bison/tree/master/examples/c/reccalc)
+
+/*
+program : declaration* TOKEN_EOF ;
 
 // -- declarations --
 
@@ -37,12 +74,12 @@ declaration : class_decl
             | var_decl
             | statement ;
 
-class_decl : TOKEN_CLASS IDENTIFIER ( '<' IDENTIFIER )?
+class_decl : TOKEN_CLASS TOKEN_IDENTIFIER ( '<' TOKEN_IDENTIFIER )?
              '{' function* '}' ;
 
 fun_decl : TOKEN_FUN function ;
 
-var_decl : TOKEN_VAR IDENTIFIER ( '=' expression )? ';' ;
+var_decl : TOKEN_VAR TOKEN_IDENTIFIER ( '=' expression )? ';' ;
 
 // -- statements --
 
@@ -75,7 +112,7 @@ block : '{' declaration* '}' ;
 
 expression : assignment ;
 
-assignment : ( call '.' )? IDENTIFIER '=' assignment
+assignment : ( call '.' )? TOKEN_IDENTIFIER '=' assignment
            | logic_or ;
 
 logic_or : logic_and ( TOKEN_OR logic_and )* ;
@@ -92,24 +129,39 @@ factor : unary ( ( '/' | '*' ) unary )* ;
 
 unary : ( '!' | '-' ) unary | call ;
 
-call : primary ( '(' arguments? ')' | '.' IDENTIFIER )* ;
+call : primary ( '(' arguments? ')' | '.' TOKEN_IDENTIFIER )* ;
 
 primary : TOKEN_TRUE | TOKEN_FALSE | TOKEN_NIL | TOKEN_THIS
-        | NUMBER | STRING | IDENTIFIER | '(' expression ')'
-        | TOKEN_SUPER '.' IDENTIFIER ;
+        | NUMBER | STRING | TOKEN_IDENTIFIER | '(' expression ')'
+        | TOKEN_SUPER '.' TOKEN_IDENTIFIER ;
 
 // -- utilities --
 
-function : IDENTIFIER '(' parameters? ')' block ;
+function : TOKEN_IDENTIFIER '(' parameters? ')' block ;
 
-parameters : IDENTIFIER ( ',' IDENTIFIER )* ;
+parameters : TOKEN_IDENTIFIER ( ',' TOKEN_IDENTIFIER )* ;
 
 arguments : expression ( ',' expression )* ;
+*/
 
 %% // -- epilogue --
 
-void yyerror(const char* err) {
-  fprintf(stderr, "%s\n", err);
+void yyerror(const char* msg, ...) {
+  // struct YYLTYPE {
+  //   int first_line;
+  //   int first_column;
+  //   int last_line;
+  //   int last_column;
+  // } yyloc;
+
+  fprintf(stderr, "error (line %d:%d)", yylineno, yylloc.first_column);
+
+  va_list args;
+  va_start(args, msg);
+  vfprintf(stderr, msg, args);
+  va_end(args);
+
+  fputc('\n', stderr);
 }
 
 int main() {
