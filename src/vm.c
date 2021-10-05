@@ -158,6 +158,12 @@ static void concatenate_strings() {
   push(OBJ_VAL((Obj*) res));
 }
 
+// TODO: Store the instruction pointer in a register and benchmark.
+// TODO: Add arity checking for native functions.
+// TODO: Allow native functions to signal runtime errors.
+// TODO: Implement additional native functions.
+// (see https://craftinginterpreters.com/calls-and-functions.html#challenges)
+
 static InterpretResult run() {
   StackFrame* frame = &vm.frames[vm.frame_count - 1];
 
