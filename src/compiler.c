@@ -60,7 +60,11 @@ typedef enum {
   TYPE_FUNCTION,
 } FunctionType;
 
-typedef struct {
+typedef struct Compiler {
+  struct Compiler* enclosing; // used to track the compiler that kicked off
+                              // this compiler (it's "parent"); for top-level
+                              // compilation, this will be NULL
+
   ObjFunction* function;
   FunctionType type;
 
@@ -209,15 +213,23 @@ static void emit_constant(Value val) {
 }
 
 static void emit_return() {
+  emit_byte(OP_NIL); // functions implicitly return nil (if no value is specified)
   emit_byte(OP_RETURN);
 }
 
 static void init_compiler(Compiler* compiler, FunctionType type) {
+  compiler->enclosing = current;
   compiler->function = new_function();
   compiler->type = type;
   compiler->local_count = 0;
   compiler->scope_depth = 0;
   current = compiler;
+
+  // we've just parsed the function's name (that's what kicks off compilation
+  // with a fresh compiler instance), use it as this compiler's name
+  if (type != TYPE_SCRIPT) {
+    current->function->name = copy_string(parser.previous.start, parser.previous.len);
+  }
 
   // the compiler claims the first stack slot for its own usage
   Local* local = &current->locals[current->local_count++];
@@ -237,6 +249,8 @@ static ObjFunction* end_compiler() {
                                   ? "<script>" : func->name->chars);
   }
 #endif
+
+  current = current->enclosing; // shift compilation back to the parent
 
   return func;
 }
@@ -297,6 +311,21 @@ static uint16_t identifier_constant(Token* name) {
   uint16_t existing;
   bool found = value_array_find_index(&current_chunk()->constants, str, &existing);
   return found ? existing : add_constant(current_chunk(), str);
+}
+
+static uint8_t argument_list() { // parse 0 or more argument expressions for a function
+  uint8_t argc = 0;              // call, placing them sequentially on the stack
+
+  if (!check(TOKEN_RIGHT_PAREN)) {
+    do {
+      expression();
+      if (argc == 255) error("Can't have more than 255 arguments.");
+      argc++;
+    } while (match(TOKEN_COMMA));
+  }
+
+  consume(TOKEN_RIGHT_PAREN, "Expected ')' after arguments.");
+  return argc;
 }
 
 static bool identifiers_equal(Token* a, Token* b) {
@@ -445,6 +474,11 @@ static void binary(bool can_assign) {
   }
 }
 
+static void call(bool can_assign) {
+  uint8_t argc = argument_list();
+  emit_bytes(OP_CALL, argc);
+}
+
 // and expressions will generate this control flow
 //
 //      <left operand expression>
@@ -525,6 +559,9 @@ static uint16_t parse_variable(const char* err_message) {
 }
 
 static inline void mark_initialized() {
+  if (current->scope_depth == 0) return; // top-level functions are stored as globals,
+                                         // so this doesn't need to do anything
+
   current->locals[current->local_count - 1].depth = current->scope_depth;
 }
 
@@ -550,6 +587,37 @@ static void block() {
   }
 
   consume(TOKEN_RIGHT_BRACE, "Expected '}' after block.");
+}
+
+static void function(FunctionType type) {
+  Compiler compiler;
+
+  init_compiler(&compiler, type);
+  begin_scope();
+
+  consume(TOKEN_LEFT_PAREN, "Expected '(' after function name.");
+  if (!check(TOKEN_RIGHT_PAREN)) {
+    do {
+      current->function->arity++;
+      if (current->function->arity > 255) {
+        error_at_current("Can't have more than 255 function parameters.");
+      }
+
+      uint16_t constant = parse_variable("Expected parameter name.");
+      define_variable(constant);
+    } while (match(TOKEN_COMMA));
+  }
+  consume(TOKEN_RIGHT_PAREN, "Expected ')' after function parameters.");
+
+  consume(TOKEN_LEFT_BRACE, "Expected '{' before function body.");
+  block();
+
+  /* consume(TOKEN_RIGHT_BRACE, "..."); // may be omitted */
+
+  ObjFunction* func = end_compiler();
+  emit_constant(OBJ_VAL((Obj*) func));
+
+  /* end_scope(); // may also be omitted (the compiler has finished) */
 }
 
 static void expression_statement() {
@@ -700,12 +768,29 @@ static void print_statement() {
   emit_byte(OP_PRINT);
 }
 
+static void return_statement() {
+  if (current->type == TYPE_SCRIPT) {
+    error("Can't return from top-level code.");
+  }
+
+  if (match(TOKEN_SEMICOLON)) { // implicit return value (nil)
+    emit_return();
+  } else {                      // explicit return value (expression)
+    expression();
+    consume(TOKEN_SEMICOLON, "Expected ';' after return value.");
+    emit_byte(OP_RETURN);
+  }
+}
+
 static void statement() {
   if (match(TOKEN_PRINT))
     print_statement();
 
   else if (match(TOKEN_IF))
     if_statement();
+
+  else if (match(TOKEN_RETURN))
+    return_statement();
 
   else if (match(TOKEN_WHILE))
     while_statement();
@@ -748,6 +833,16 @@ static void synchronize() {
   }
 }
 
+static void fun_declaration() {
+  uint8_t global = parse_variable("Expected function name.");
+  mark_initialized(); // we don't need to wait for an initializer expression,
+                      // it's OK for functions to recurse since they won't actually
+                      // _use_ their own value until runtime
+
+  function(TYPE_FUNCTION);
+  define_variable(global);
+}
+
 static void var_declaration() {
   uint16_t global = parse_variable("Expected variable name.");
 
@@ -760,8 +855,14 @@ static void var_declaration() {
 }
 
 static void declaration() {
-  if (match(TOKEN_VAR)) var_declaration();
-  else                  statement();
+  if (match(TOKEN_FUN))
+    fun_declaration();
+
+  else if (match(TOKEN_VAR))
+    var_declaration();
+
+  else
+    statement();
 
   // if things went awry, try to find a synchronization point
   // and re-enable normal compilation (on a statement boundary)
@@ -830,7 +931,7 @@ ParseRule rules[] = {
 /*+---------------------+-----------+--------+-----------------+
   | token               | prefix    | infix  | precedence      |
   +---------------------+-----------+--------+-----------------+*/
-  [TOKEN_LEFT_PAREN]    = {grouping,  NULL,    PREC_NONE       },
+  [TOKEN_LEFT_PAREN]    = {grouping,  call,    PREC_CALL       },
   [TOKEN_RIGHT_PAREN]   = {NULL,      NULL,    PREC_NONE       },
   [TOKEN_LEFT_BRACE]    = {NULL,      NULL,    PREC_NONE       },
   [TOKEN_RIGHT_BRACE]   = {NULL,      NULL,    PREC_NONE       },

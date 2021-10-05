@@ -51,13 +51,71 @@ static void runtime_error(const char* format, ...) {
   va_end(args);
   fputs("\n", stderr);
 
-  size_t instruction = vm.ip - vm.chunk->code - 1;
-  size_t line = get_nth_rle_array(&vm.chunk->lines, instruction);
-  fprintf(stderr, "[line %zu] in script\n", line);
+  // print stacktrace (in reverse order of execution, most recent first)
+  for (int i = vm.frame_count - 1; i >= 0; i--) {
+    StackFrame* frame = &vm.frames[i];
+    ObjFunction* func = frame->function;
+    size_t instruction = frame->ip - func->chunk.code - 1;
+
+    fprintf(stderr, "[line %d] in ", get_nth_rle_array(&func->chunk.lines, instruction));
+    if (func->name == NULL) {
+      fprintf(stderr, "script\n");
+    } else {
+      fprintf(stderr, "%s()\n", func->name->chars);
+    }
+  }
+
   reset_stack();
 }
 
-static bool is_falsey(Value val) {
+// When executing a function call, the function itself will be pushed
+// onto the stack, followed by the arguments to the call. Then, a new
+// stack frame rooted at the function object will be created, and the
+// VM's instruction pointer will be updated to point there, where
+// execution will be resumed.
+//
+//     func(a, b, c);
+//
+//               ┌────────────────────┐
+//     [-] [...] | [func] [a] [b] [c] |
+//               └───┬────────────────┘
+//                   └─ stack frame
+//
+static bool call(ObjFunction* func, uint8_t argc) {
+  if (argc != func->arity) {
+    runtime_error("Expected %d arguments but got %d.", func->arity, argc);
+    return false;
+  }
+
+  if (vm.frame_count == FRAMES_MAX) {
+    runtime_error("Stack overflow."); // hey look, it's the thing!!
+    return false;
+  }
+
+  StackFrame* frame = &vm.frames[vm.frame_count++];
+
+  frame->function = func;
+  frame->ip = func->chunk.code;
+  frame->slots = vm.stack_top - argc - 1;
+
+  return true;
+}
+
+static bool call_value(Value callee, uint8_t argc) {
+  if (IS_OBJ(callee)) {
+    switch (OBJ_TYPE(callee)) {
+      case OBJ_FUNCTION:
+        return call(AS_FUNCTION(callee), argc);
+      default:
+        break; // object must not have been callable
+    }
+  }
+
+  runtime_error("Can only call functions and closures.");
+  return false;
+}
+
+static inline bool is_falsey(Value val) {
   return IS_NIL(val) || (IS_BOOL(val) && !AS_BOOL(val));
 }
 
@@ -108,7 +166,8 @@ static InterpretResult run() {
     printf("\n");
 
     // display instruction
-    disasm_instruction(vm.chunk, (size_t)(vm.ip - vm.chunk->code));
+    disasm_instruction(&frame->function->chunk,
+                      (size_t) (frame->ip - frame->function->chunk.code));
 #endif
 
     uint8_t instr;
@@ -136,13 +195,13 @@ static InterpretResult run() {
 
       case OP_GET_LOCAL: {
         uint8_t slot = READ_BYTE();
-        push(vm.stack[slot]);
+        push(frame->slots[slot]);
         break;
       }
 
       case OP_SET_LOCAL: {
         uint8_t slot = READ_BYTE();
-        vm.stack[slot] = peek(0);
+        frame->slots[slot] = peek(0);
         break;
       }
 
@@ -263,25 +322,51 @@ static InterpretResult run() {
       // -- control flow --
       case OP_JUMP: {
         uint16_t offset = READ_SHORT();
-        vm.ip += offset;
+        frame->ip += offset;
         break;
       }
 
       case OP_JUMP_IF_FALSE: {
         uint16_t offset = READ_SHORT();
-        if (is_falsey(peek(0))) vm.ip += offset;
+        if (is_falsey(peek(0))) frame->ip += offset;
         break;
       }
 
       case OP_LOOP: {
         uint16_t offset = READ_SHORT();
-        vm.ip -= offset;
+        frame->ip -= offset;
         break;
       }
 
-      case OP_RETURN:
-        // exit the interpreter
-        return INTERPRET_OK;
+      case OP_CALL: {
+        uint8_t argc = READ_BYTE();
+        if (!call_value(peek(argc), argc)) {
+          return INTERPRET_RUNTIME_ERR;
+        }
+
+        // if the function call succeeds, remove its stack frame
+        frame = &vm.frames[vm.frame_count - 1];
+
+        break;
+      }
+
+      case OP_RETURN: {
+        Value result = pop();
+        vm.frame_count--;
+
+        if (vm.frame_count == 0) { // we've finish executing the top-level code
+          pop();                   // so clean up the stack and exit
+          return INTERPRET_OK;
+        }
+
+        // otherwise, we're returning from a function call, so shift the stack
+        // back to where it was before the function call, then push the result
+        // of the call onto the stack, and shift to the most recent stack frame
+        vm.stack_top = frame->slots;
+        push(result);
+        frame = &vm.frames[vm.frame_count - 1];
+        break;
+      }
     }
   }
 
@@ -295,19 +380,11 @@ static InterpretResult run() {
 }
 
 InterpretResult interpret(const char* source) {
-  Chunk chunk;
+  ObjFunction* func = compile(source);
+  if (func == NULL) return INTERPRET_COMPILE_ERR;
 
-  init_chunk(&chunk);
+  push(OBJ_VAL((Obj*) func)); // the first slot in the stack contains the top-level function
+  call(func, 0);              // (which is really just a function with no arguments, right?)
 
-  if (!compile(source, &chunk)) {
-    free_chunk(&chunk);
-    return INTERPRET_COMPILE_ERR;
-  }
-
-  vm.chunk = &chunk;
-  vm.ip = vm.chunk->code;
-  InterpretResult res = run();
-
-  free_chunk(&chunk);
-  return res;
+  return run();
 }
