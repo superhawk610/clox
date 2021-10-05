@@ -1,5 +1,7 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sysexits.h>
 #include "common.h"
 #include "chunk.h"
@@ -11,7 +13,7 @@
 static char* read_file(const char* path) {
   FILE* f = fopen(path, "rb");
   if (f == NULL) {
-    fprintf(stderr, "could not open file \"%s\".\n", path);
+    fprintf(stderr, "[%s] could not open file \"%s\".\n", strerror(errno), path);
     exit(EX_IOERR);
   }
 
@@ -25,7 +27,7 @@ static char* read_file(const char* path) {
     exit(EX_IOERR);
   }
 
-  size_t n_read = fread(buf, sizeof(buf), f_size, f);
+  size_t n_read = fread(buf, sizeof(char), f_size, f);
   if (n_read < f_size) {
     fprintf(stderr, "could not read file \"%s\".\n", path);
     exit(EX_IOERR);

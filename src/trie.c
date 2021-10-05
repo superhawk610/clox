@@ -18,7 +18,7 @@ void free_trie(Trie* trie) {
 }
 
 static void init_leaf(TrieLeaf* leaf) {
-  memset(leaf->links, 0, sizeof(*leaf->links));
+  memset(leaf->links, 0, ALPHABET_SIZE * sizeof(TrieLeaf*));
   leaf->terminal = TOKEN__NULL__;
 }
 
