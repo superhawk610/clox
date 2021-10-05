@@ -1,6 +1,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include "common.h"
 #include "compiler.h"
 #include "debug.h"
@@ -8,9 +9,23 @@
 #include "object.h"
 #include "vm.h"
 
-#define GLOBALS_LRU_CACHE_CAP 25
-
 VM vm; // global singleton, since we don't support parallel VMs
+
+// -- native functions
+
+static Value clock_native(uint8_t argc, Value* argv) {
+  return NUMBER_VAL((double) clock() / CLOCKS_PER_SEC);
+}
+
+static void define_native(const char* name, NativeFn func) {
+  push(OBJ_VAL((Obj*) copy_string(name, (size_t) strlen(name))));
+  push(OBJ_VAL((Obj*) new_native(func)));
+  table_set(&vm.globals, AS_STRING(vm.stack[0]), vm.stack[1]);
+  pop(); // push then pop the values onto the stack to include
+  pop(); // them in garbage collection
+}
+
+// --
 
 static void reset_stack() {
   vm.stack_top = vm.stack;
@@ -22,6 +37,9 @@ void init_vm() {           // initialize the VM:
   vm.objects = NULL;       // 2. initialize object storage (for GC)
   init_table(&vm.globals); // 3. initialize global variable storage
   init_table(&vm.strings); // 4. initialize interned string storage
+
+  // 5. define native functions
+  define_native("clock", clock_native);
 }
 
 void free_vm() {
@@ -106,6 +124,13 @@ static bool call_value(Value callee, uint8_t argc) {
     switch (OBJ_TYPE(callee)) {
       case OBJ_FUNCTION:
         return call(AS_FUNCTION(callee), argc);
+      case OBJ_NATIVE: {                                  // to call a native function, invoke
+        NativeFn native = AS_NATIVE(callee);              // the C function pointer, store its
+        Value result = native(argc, vm.stack_top - argc); // return value, then push it on the
+        vm.stack_top -= argc + 1;                         // stack and resume execution
+        push(result);
+        return true;
+      }
       default:
         break; // object must not have been callable
     }
