@@ -1,87 +1,130 @@
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <readline/readline.h>
 #include "repl.h"
 #include "vm.h"
 
-// TODO: Track command history
 // TODO: Tab completion
-// https://web.mit.edu/gnu/doc/html/rlman_2.html
 
-typedef struct History {
-  char* line;
+typedef struct HistoryLine {
+  char* chars;
 
-  struct History* prev;
-  struct History* next;
+  struct HistoryLine* prev;
+  struct HistoryLine* next;
+} HistoryLine;
+
+typedef struct {
+  HistoryLine* head; // doubly-linked list of previous input
+  HistoryLine* tail; // store pointer to tail for faster pushes
+  HistoryLine* curr; // pointer to current line
+
+  bool input_pending; // whether the user has some input pending (if they do,
+                      // recording new history will be patch instead of push)
 } History;
 
-History* history;
+History history;
 
-static void history_init(History* h) {
-  h->line = NULL;
-  h->prev = NULL;
-  h->next = NULL;
+static void history_line_init(HistoryLine* line);
+
+static void history_init() {
+  HistoryLine* line = (HistoryLine*) malloc(sizeof(HistoryLine));
+  history_line_init(line);
+  line->chars = (char*) malloc(1);
+  line->chars[0] = '\0';
+
+  history.head = line;
+  history.tail = history.head;
+  history.curr = history.head;
+  history.input_pending = false;
 }
 
 static void history_free() {
-  // TODO: Walk back to front of list, then walk forward and free
-  //       as we go.
+  HistoryLine* line = history.head;
+
+  do {
+    free(line->chars);
+    line = line->next;
+  } while (line != NULL);
+
+  history.head = NULL;
+  history.tail = NULL;
+  history.curr = NULL;
 }
 
-static void setup_history() {
-  History* h = (History*) malloc(sizeof(History));
-  history_init(h);
-  h->line = (char*) malloc(1);
-  h->line[0] = '\0';
-
-  history = h;
+static void history_line_init(HistoryLine* line) {
+  line->chars = NULL;
+  line->prev = NULL;
+  line->next = NULL;
 }
 
 static char* history_prev() {
-  if (history->prev != NULL) history = history->prev;
-  return history->line;
+  if (history.curr->prev != NULL) history.curr = history.curr->prev;
+  return history.curr->chars;
 }
 
 static char* history_next() {
-  if (history->next != NULL) history = history->next;
-  return history->line;
+  if (history.curr->next != NULL) history.curr = history.curr->next;
+  return history.curr->chars;
 }
 
-static void history_push(char* line) {
-  if (history->next != NULL) {
-    // TODO: We're rewriting history, so free anything that
-    //       will no longer be reachable.
-  }
+static void history_push(char* chars) {
+  HistoryLine* line = (HistoryLine*) malloc(sizeof(HistoryLine));
+  history_line_init(line);
+  line->chars = chars;
 
-  History* new_history = (History*) malloc(sizeof(History));
-  history_init(new_history);
-  new_history->line = line;
+  history.tail->next = line;
+  line->prev = history.tail;
+  history.tail = line;
+}
 
-  if (history == NULL) {
-    history = new_history;
-  } else {
-    history->next = new_history;
-    new_history->prev = history;
-    history = new_history;
-  }
+static void history_drop() {
+  HistoryLine* tail = history.tail;
+  history.tail = tail->prev;
+
+  if (history.curr == tail) history.curr = history.tail;
+
+  free(tail->chars);
+}
+
+static void history_patch(char* line) {
+  free(history.tail->chars);
+  history.tail->chars = line;
 }
 
 static void history_dump() {
-  History* h = history;
-  while (h->prev != NULL) h = h->prev;
+  HistoryLine* line = history.head;
 
   do {
-    printf("prev: 0x%.16zx next: 0x%.16zx line: \"%s\"\n", (size_t) h->prev,
-                                                             (size_t) h->next,
-                                                             h->line);
+    printf("0x%.16zx prev: 0x%.16zx next: 0x%.16zx chars: 0x%.16zx \"%s\"\n",
+      (size_t) line,
+      (size_t) line->prev,
+      (size_t) line->next,
+      (size_t) line->chars,
+      line->chars);
 
-    h = h->next;
-  } while (h != NULL);
+    line = line->next;
+  } while (line != NULL);
+
+  printf("\nhead: 0x%.16zx tail: 0x%.16zx curr: 0x%.16zx\n", (size_t) history.head,
+                                                             (size_t) history.tail,
+                                                             (size_t) history.curr);
+}
+
+static char* duplicate_string(const char* str) {
+  size_t len = strlen(str);
+  char* dup = (char*) malloc(len + 1);
+  strcpy(dup, str);
+  return dup;
 }
 
 static int handle_up_arrow(int count, int key) {
-  // TODO: The first time this is called, store the current input
-  //       somewhere so the user can get back to it.
+  if (!history.input_pending) {
+    history_push(duplicate_string(rl_line_buffer));
+    history.input_pending = true;
+    history.curr = history.tail;
+  }
 
   char* prev = history_prev();
   if (prev == NULL) return 0;
@@ -109,16 +152,26 @@ void repl() {
   rl_bind_keyseq("\\e[B", handle_down_arrow);
   rl_bind_key('\t', handle_tab);
 
-  setup_history();
+  history_init();
 
   for (;;) {
     line = readline("> ");
     if (!line) break; // break on EOF
 
-    history_push(line);
-    history_dump();
+    if (history.input_pending) {
+      if (line[0] == '\0') history_drop();
+      else                 history_patch(line);
+
+      history.input_pending = false;
+    } else if (line[0] != '\0') {
+      history_push(line);
+    }
+
+    history.curr = history.tail;
+
     interpret(line);
   }
 
+  free(line);
   history_free();
 }
