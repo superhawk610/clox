@@ -1,6 +1,6 @@
-#include <readline/readline.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <readline/readline.h>
 #include "repl.h"
 #include "vm.h"
 
@@ -15,19 +15,35 @@ typedef struct History {
   struct History* next;
 } History;
 
-History* history = NULL;
+History* history;
+
+static void history_init(History* h) {
+  h->line = NULL;
+  h->prev = NULL;
+  h->next = NULL;
+}
+
+static void history_free() {
+  // TODO: Walk back to front of list, then walk forward and free
+  //       as we go.
+}
+
+static void setup_history() {
+  History* h = (History*) malloc(sizeof(History));
+  history_init(h);
+  h->line = (char*) malloc(1);
+  h->line[0] = '\0';
+
+  history = h;
+}
 
 static char* history_prev() {
-  if (history == NULL || history->prev == NULL) return NULL;
-
-  history = history->prev;
+  if (history->prev != NULL) history = history->prev;
   return history->line;
 }
 
 static char* history_next() {
-  if (history == NULL || history->next == NULL) return NULL;
-
-  history = history->next;
+  if (history->next != NULL) history = history->next;
   return history->line;
 }
 
@@ -38,21 +54,40 @@ static void history_push(char* line) {
   }
 
   History* new_history = (History*) malloc(sizeof(History));
-  history->next = new_history;
-  new_history->prev = history;
-  history = new_history;
+  history_init(new_history);
+  new_history->line = line;
+
+  if (history == NULL) {
+    history = new_history;
+  } else {
+    history->next = new_history;
+    new_history->prev = history;
+    history = new_history;
+  }
 }
 
-static void history_free() {
-  // TODO: Walk back to front of list, then walk forward and free
-  //       as we go.
+static void history_dump() {
+  History* h = history;
+  while (h->prev != NULL) h = h->prev;
+
+  do {
+    printf("prev: 0x%.16zx next: 0x%.16zx line: \"%s\"\n", (size_t) h->prev,
+                                                             (size_t) h->next,
+                                                             h->line);
+
+    h = h->next;
+  } while (h != NULL);
 }
 
 static int handle_up_arrow(int count, int key) {
+  // TODO: The first time this is called, store the current input
+  //       somewhere so the user can get back to it.
+
   char* prev = history_prev();
   if (prev == NULL) return 0;
 
   rl_replace_line(prev, 0);
+  rl_point = rl_end; // move cursor to end of line
   return 0;
 }
 
@@ -61,6 +96,7 @@ static int handle_down_arrow(int count, int key) {
   if (next == NULL) return 0;
 
   rl_replace_line(next, 0);
+  rl_point = rl_end;
   return 0;
 }
 
@@ -73,11 +109,14 @@ void repl() {
   rl_bind_keyseq("\\e[B", handle_down_arrow);
   rl_bind_key('\t', handle_tab);
 
+  setup_history();
+
   for (;;) {
     line = readline("> ");
     if (!line) break; // break on EOF
 
     history_push(line);
+    history_dump();
     interpret(line);
   }
 

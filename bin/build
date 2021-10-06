@@ -6,6 +6,11 @@ CFLAGS="-std=c17 -o build/main"
 SRC="src/*.c"
 CLIBS="-lreadline"
 
+if echo "$OSTYPE" | grep -q -E "^darwin"; then
+  CFLAGS="-I/usr/local/opt/readline/include $CFLAGS"
+  CLIBS="-L/usr/local/opt/readline/lib $CLIBS"
+fi
+
 while [[ $# -gt 0 ]]; do
   key="$1"
 
@@ -16,6 +21,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -v|--verbose)
       CFLAGS="$CFLAGS -v"
+      shift
+      ;;
+    -z|--zig)
+      CC="zig cc"
       shift
       ;;
     *)
