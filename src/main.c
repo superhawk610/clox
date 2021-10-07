@@ -6,6 +6,7 @@
 #include "common.h"
 #include "chunk.h"
 #include "debug.h"
+#include "logger.h"
 #include "repl.h"
 #include "signal_handlers.h"
 #include "vm.h"
@@ -54,7 +55,7 @@ int main(int argc, const char* argv[]) {
 #define LINE_NO 123
 
   install_signal_handlers();
-
+  init_logger();
   init_vm();
 
   if      (argc == 1) repl();

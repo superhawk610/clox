@@ -5,6 +5,7 @@
 #define FOO TOKEN_IF
 #define BAR TOKEN_AND
 #define BAZ TOKEN_OR
+#define NOT_FOUND TOKEN__NULL__
 
 void test_trie() {
   Trie trie;
@@ -15,13 +16,13 @@ void test_trie() {
   trie_push(&trie, "bar", BAR);
   trie_push(&trie, "baz", BAZ);
 
-  refute(trie_has(&trie, "f", 1));
-  refute(trie_has(&trie, "fo", 2));
+  assert(trie_has(&trie, "f", 1) == NOT_FOUND);
+  assert(trie_has(&trie, "fo", 2) == NOT_FOUND);
   assert(trie_has(&trie, "foo", 3) == FOO);
   assert(trie_has(&trie, "bar", 3) == BAR);
   assert(trie_has(&trie, "baz", 3) == BAZ);
-  refute(trie_has(&trie, "bazz", 4));
-  refute(trie_has(&trie, "qux", 3));
+  assert(trie_has(&trie, "bazz", 4) == NOT_FOUND);
+  assert(trie_has(&trie, "qux", 3) == NOT_FOUND);
 
   free_trie(&trie);
 }
@@ -31,3 +32,4 @@ void test_trie() {
 #undef FOO
 #undef BAR
 #undef BAZ
+#undef NOT_FOUND

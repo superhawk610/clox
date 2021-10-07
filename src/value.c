@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include "logger.h"
 #include "memory.h"
 #include "object.h"
 #include "value.h"
@@ -56,12 +57,12 @@ bool values_equal(Value a, Value b) {
 void print_value(Value val) {
   switch (val.type) {
     case VAL_BOOL:
-      printf("%s%s%s", ANSI_Cyan,
-                       AS_BOOL(val) ? "true" : "false",
-                       ANSI_Reset);
+      out_printf("%s%s%s", ANSI_Cyan,
+                           AS_BOOL(val) ? "true" : "false",
+                           ANSI_Reset);
       break;
-    case VAL_NIL:    printf(ANSI_Dim "nil" ANSI_Reset); break;
-    case VAL_NUMBER: printf("%g", AS_NUMBER(val)); break;
+    case VAL_NIL:    out_printf(ANSI_Dim "nil" ANSI_Reset); break;
+    case VAL_NUMBER: out_printf("%g", AS_NUMBER(val)); break;
     case VAL_OBJ:    print_object(val); break;
   }
 }

@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <string.h>
 #include "common.h"
 
 void testing__assert_fail(char* expr,
@@ -10,4 +12,11 @@ void testing__assert_fail(char* expr,
                   __function, __file, __line, expr);
 
   exit(1);
+}
+
+char* duplicate_string(const char* str) {
+  size_t len = strlen(str);
+  char* dup = (char*) malloc(len + 1);
+  strcpy(dup, str);
+  return dup;
 }

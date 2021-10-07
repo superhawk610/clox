@@ -35,11 +35,13 @@ void testing__assert_fail(char* expr,
 #define assert(expr) \
   ((expr) \
    ? (void) (0) \
-   : testing__assert_fail(#expr, __FILE__, __LINE__, __func))
+   : testing__assert_fail("assert " #expr, __FILE__, __LINE__, __func))
 
 #define refute(expr) \
   ((expr) \
-   ? testing__assert_fail(#expr, __FILE__, __LINE__, __func) \
+   ? testing__assert_fail("refute " #expr, __FILE__, __LINE__, __func) \
    : (void) (0))
+
+char* duplicate_string(const char* str);
 
 #endif // __TEST_COMMON_H__

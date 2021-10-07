@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include "logger.h"
 #include "memory.h"
 #include "object.h"
 #include "table.h"
@@ -86,11 +87,11 @@ ObjString* copy_string(const char* chars, size_t len) {
 
 static void print_function(ObjFunction* func) {
   if (func->name == NULL) { // the top-level "function" has no name
-    printf("<script>");
+    out_printf("<script>");
     return;
   }
 
-  printf("<fn %s>", func->name->chars);
+  out_printf("<fn %s>", func->name->chars);
 }
 
 void print_object(Value val) {
@@ -99,10 +100,10 @@ void print_object(Value val) {
       print_function(AS_FUNCTION(val));
       break;
     case OBJ_NATIVE:
-      printf("<native fn>");
+      out_printf("<native fn>");
       break;
     case OBJ_STRING:
-      printf("%s", AS_CSTRING(val));
+      out_printf("%s", AS_CSTRING(val));
       break;
   }
 }

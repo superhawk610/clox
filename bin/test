@@ -2,7 +2,7 @@
 set -e
 
 CC="gcc"
-CFLAGS="-std=c17 -ggdb -lreadline -o build/__test__ -D__TESTING__"
+CFLAGS="-std=gnu11 -ggdb -lreadline -o build/__test__ -D__TESTING__"
 SRC="src/*.c test/*.c"
 CLIBS="-lreadline"
 
