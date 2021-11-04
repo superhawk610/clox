@@ -7,19 +7,23 @@
 
 #define OBJ_TYPE(val)     (AS_OBJ(val)->type)
 
+#define IS_CLOSURE(val)   is_obj_type(val, OBJ_CLOSURE)
 #define IS_FUNCTION(val)  is_obj_type(val, OBJ_FUNCTION)
 #define IS_NATIVE(val)    is_obj_type(val, OBJ_NATIVE)
 #define IS_STRING(val)    is_obj_type(val, OBJ_STRING)
 
+#define AS_CLOSURE(val)   ((ObjClosure*) AS_OBJ(val))
 #define AS_FUNCTION(val)  ((ObjFunction*) AS_OBJ(val))
 #define AS_NATIVE(val)    (((ObjNative*) AS_OBJ(val))->function)
 #define AS_STRING(val)    ((ObjString*) AS_OBJ(val))
 #define AS_CSTRING(val)   (((ObjString*) AS_OBJ(val))->chars)
 
 typedef enum {
+  OBJ_CLOSURE,
   OBJ_FUNCTION,
   OBJ_NATIVE,
   OBJ_STRING,
+  OBJ_UPVALUE,
 } ObjType;
 
 /**
@@ -50,9 +54,12 @@ struct Obj {
 
 typedef struct {
   Obj obj;
-  int arity;
   Chunk chunk;
-  ObjString* name;
+
+  ObjString* name;   // identifying info about the function
+  int arity;         // (name, arity)
+
+  int upvalue_count; // how many upvalues are captured
 } ObjFunction;
 
 typedef Value (*NativeFn)(uint8_t argc, Value* argv);
@@ -70,6 +77,26 @@ struct ObjString {
   uint32_t hash; // eagerly-computed hash
 };
 
+typedef struct {
+  Obj obj;
+  Value* location; // reference to the captured variable; note that
+                   // this is a Value*, not just a Value, pointing
+                   // to the upstream variable so that mutations made
+                   // via this upvalue are reflected in the original
+                   // scope as well
+} ObjUpvalue;
+
+// Closures point to a function to invoke, along with zero
+// or more captured variables from the defining scope.
+typedef struct {
+  Obj obj;
+  ObjFunction* function;
+  ObjUpvalue** upvalues; // dynamic array for captured upvalues
+  int upvalue_count;
+} ObjClosure;
+
+ObjClosure* new_closure(ObjFunction* func);
+
 ObjFunction* new_function();
 
 ObjNative* new_native(NativeFn func);
@@ -77,6 +104,8 @@ ObjNative* new_native(NativeFn func);
 ObjString* take_string(char* chars, size_t len);
 
 ObjString* copy_string(const char* chars, size_t len);
+
+ObjUpvalue* new_upvalue(Value* slot);
 
 void print_object(Value val);
 

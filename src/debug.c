@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "debug.h"
 #include "value.h"
+#include "object.h"
 
 void disasm_chunk(Chunk* chunk, const char* name) {
   printf("== %s ==\n", name);
@@ -86,6 +87,10 @@ size_t disasm_instruction(Chunk* chunk, size_t offset) {
       return byte_instr("OP_GET_LOCAL", chunk, offset);
     case OP_SET_LOCAL:
       return byte_instr("OP_SET_LOCAL", chunk, offset);
+    case OP_GET_UPVALUE:
+      return byte_instr("OP_GET_UPVALUE", chunk, offset);
+    case OP_SET_UPVALUE:
+      return byte_instr("OP_SET_UPVALUE", chunk, offset);
     case OP_DEF_GLOBAL:
       return const_instr("OP_DEF_GLOBAL", chunk, offset);
     case OP_DEF_GLOBAL_LONG:
@@ -134,6 +139,24 @@ size_t disasm_instruction(Chunk* chunk, size_t offset) {
       return jump_instr("OP_LOOP", -1, chunk, offset);
     case OP_CALL:
       return byte_instr("OP_CALL", chunk, offset);
+    case OP_CLOSURE: {
+      offset++;
+
+      uint8_t constant = chunk->code[offset++];
+      printf("%-16s %4d ", "OP_CLOSURE", constant);
+      print_value(chunk->constants.values[constant]);
+      printf("\n");
+
+      ObjFunction* func = AS_FUNCTION(chunk->constants.values[constant]);
+      for (int i = 0; i < func->upvalue_count; i++) {
+        bool is_local = chunk->code[offset++] == 1 ? true : false;
+        int index = chunk->code[offset++];
+        printf("%04zu    |                     %s %d\n",
+               offset - 2, is_local ? "local" : "upvalue", index);
+      }
+
+      return offset;
+    }
     case OP_RETURN:
       return simple_instr("OP_RETURN", offset);
 

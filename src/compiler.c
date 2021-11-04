@@ -55,6 +55,12 @@ typedef struct {
   int depth;
 } Local;
 
+typedef struct {
+  uint8_t index; // the captured variable's stack index
+  bool is_local; // whether the captured variable is local
+                 // to the containing function's scope
+} Upvalue;
+
 typedef enum {
   TYPE_SCRIPT, // the top-level script is compiled as a "function"
   TYPE_FUNCTION,
@@ -71,6 +77,8 @@ typedef struct Compiler {
   Local locals[UINT8_COUNT];
   int local_count;
   int scope_depth;
+
+  Upvalue upvalues[UINT8_COUNT];
 } Compiler;
 
 Parser parser;
@@ -369,6 +377,73 @@ static void add_local(Token name) {
                                     //
 }
 
+// each compiler keeps track of any upvalues it has resolved in its
+// body, which can then be retrieved by index; by default, upvalues
+// capture the stack index of the captured variable, but if the
+// variable escapes the function body then they will instead refer
+// to a heap allocation (not yet implemented)
+static int add_upvalue(Compiler* compiler, uint8_t index, bool is_local) {
+  int upvalue_count = compiler->function->upvalue_count;
+
+  for (int i = 0; i < upvalue_count; i++) {
+    Upvalue* uv = &compiler->upvalues[i];
+    if (uv->index == index && uv->is_local == is_local) {
+      return i; // share a matching upvalue that's alredy been recorded
+    }
+  }
+
+  if (upvalue_count == UINT8_COUNT) {
+    error("Too many closure variables in function.");
+    return 0;
+  }
+
+  compiler->upvalues[upvalue_count].is_local = is_local;
+  compiler->upvalues[upvalue_count].index = index;
+
+  return compiler->function->upvalue_count++;
+}
+
+static int resolve_upvalue(Compiler* compiler, Token* name) {
+  // top-level scope can't capture anything
+  if (compiler->enclosing == NULL) return UNRESOLVED_LOCAL;
+
+  // first, check for the captured variable in the enclosing compiler;
+  // if it's there, create a local upvalue capturing it
+  int local = resolve_local(compiler->enclosing, name);
+  if (local != UNRESOLVED_LOCAL) {
+    return add_upvalue(compiler, (uint8_t) local, true);
+  }
+
+  // if that doesn't work, attempt to recursively resolve to a local
+  // in a higher-level enclosing compiler; if this works, create an
+  // effectively linked-list of upvalues pointing from the current
+  // compiler back to the scope where the captured variable is defined
+  //
+  //     fun outer() {
+  //       var x = 1;       // 3. resolve_local() succeeds here,
+  //                        //    allowing resolve_upvalue() to
+  //                        //    capture a local upvalue and make
+  //                        //    it available back down to the
+  //                        //    scope defined in inner()
+  //
+  //       fun middle() {   // 2. resolve_local() fails here, so
+  //                        //    resolve_upvalue() recurses to
+  //                        //    the enclosing scope
+  //
+  //         fun inner() {
+  //           print x;     // 1. resolve_upvalue() starts here
+  //         }
+  //       }
+  //     }
+  //
+  int uv = resolve_upvalue(compiler->enclosing, name);
+  if (uv != UNRESOLVED_LOCAL) {
+    return add_upvalue(compiler, (uint8_t) uv, false);
+  }
+
+  return UNRESOLVED_LOCAL;
+}
+
 static void declare_variable() {
   // no need to declare globals, as they're embedded in the bytecode
   if (current->scope_depth == 0) return;
@@ -386,6 +461,15 @@ static void declare_variable() {
   }
 
   add_local(*name);
+}
+
+static void named_upvalue(uint8_t arg, bool can_assign) {
+  if (can_assign && match(TOKEN_EQUAL)) { // if followed by `=` (i.e. a = 1),
+    expression();                         // it's variable assignment...
+    emit_bytes(OP_SET_UPVALUE, arg);
+  } else {                                // ...otherwise, it's just variable access
+    emit_bytes(OP_GET_UPVALUE, arg);
+  }
 }
 
 static void named_local(uint8_t arg, bool can_assign) {
@@ -410,6 +494,8 @@ static void named_variable(Token name, bool can_assign) {
   int local_arg = resolve_local(current, &name);
   if (local_arg != UNRESOLVED_LOCAL) {
     named_local((uint8_t) local_arg, can_assign);
+  } else if ((local_arg = resolve_upvalue(current, &name)) != UNRESOLVED_LOCAL) {
+    named_upvalue((uint8_t) local_arg, can_assign);
   } else {
     uint16_t arg = identifier_constant(&name);
     named_global(arg, can_assign);
@@ -614,8 +700,23 @@ static void function(FunctionType type) {
 
   /* consume(TOKEN_RIGHT_BRACE, "..."); // may be omitted */
 
+  // output bytecode for the closure (OP_CLOSURE, followed by constant
+  // index that refers to an Object* for the compiled function)
   ObjFunction* func = end_compiler();
-  emit_constant(OBJ_VAL((Obj*) func));
+  emit_byte(OP_CLOSURE);
+
+  uint16_t constant = add_constant(current_chunk(), OBJ_VAL((Obj*) func));
+  if (constant >= UINT8_MAX) {
+    error("Too many constants in chunk.");
+  }
+
+  emit_byte((uint8_t) constant);
+
+  // output bytecode for any captured upvalues
+  for (int i = 0; i < func->upvalue_count; i++) {
+    emit_byte(compiler.upvalues[i].is_local ? 1 : 0);
+    emit_byte(compiler.upvalues[i].index);
+  }
 
   /* end_scope(); // may also be omitted (the compiler has finished) */
 }

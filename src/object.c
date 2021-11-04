@@ -43,11 +43,25 @@ static uint32_t hash_string(const char* chars, size_t len) {
   return hash;
 }
 
+ObjClosure* new_closure(ObjFunction* func) {
+  ObjUpvalue** uvs = ALLOCATE(ObjUpvalue*, func->upvalue_count);
+  for (int i = 0; i < func->upvalue_count; i++) {
+    uvs[i] = NULL;
+  }
+
+  ObjClosure* closure = ALLOCATE_OBJ(ObjClosure, OBJ_CLOSURE);
+  closure->function = func;
+  closure->upvalues = uvs;
+  closure->upvalue_count = func->upvalue_count;
+  return closure;
+}
+
 ObjFunction* new_function() {
   ObjFunction* func = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
 
-  func->arity = 0;
   func->name = NULL;
+  func->arity = 0;
+  func->upvalue_count = 0;
   init_chunk(&func->chunk); // heh, func chunk
 
   return func;
@@ -94,8 +108,17 @@ static void print_function(ObjFunction* func) {
   out_printf("<fn %s>", func->name->chars);
 }
 
+ObjUpvalue* new_upvalue(Value* slot) {
+  ObjUpvalue* uv = ALLOCATE_OBJ(ObjUpvalue, OBJ_UPVALUE);
+  uv->location = slot;
+  return uv;
+}
+
 void print_object(Value val) {
   switch (OBJ_TYPE(val)) {
+    case OBJ_CLOSURE:
+      print_function(AS_CLOSURE(val)->function);
+      break;
     case OBJ_FUNCTION:
       print_function(AS_FUNCTION(val));
       break;
@@ -104,6 +127,10 @@ void print_object(Value val) {
       break;
     case OBJ_STRING:
       out_printf("%s", AS_CSTRING(val));
+      break;
+    case OBJ_UPVALUE: // upvalues are runtime internals, so user code
+                      // shouldn't actually ever hit this branch
+      printf("upvalue");
       break;
   }
 }
