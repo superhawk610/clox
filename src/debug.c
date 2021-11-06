@@ -157,6 +157,8 @@ size_t disasm_instruction(Chunk* chunk, size_t offset) {
 
       return offset;
     }
+    case OP_CLOSE_UPVALUE:
+      return simple_instr("OP_CLOSE_UPVALUE", offset);
     case OP_RETURN:
       return simple_instr("OP_RETURN", offset);
 

@@ -53,6 +53,7 @@ typedef struct {
 typedef struct {
   Token name;
   int depth;
+  bool is_captured; // whether or not this local is captured by a closure
 } Local;
 
 typedef struct {
@@ -242,6 +243,7 @@ static void init_compiler(Compiler* compiler, FunctionType type) {
   // the compiler claims the first stack slot for its own usage
   Local* local = &current->locals[current->local_count++];
   local->depth = 0;
+  local->is_captured = false;
   local->name.start = "";
   local->name.len = 0;
 }
@@ -273,7 +275,12 @@ static void end_scope() {
   // discard all scoped locals from the stack
   while (current->local_count > 0 &&
          current->locals[current->local_count - 1].depth > current->scope_depth) {
-    emit_byte(OP_POP);
+    if (current->locals[current->local_count - 1].is_captured) {
+      emit_byte(OP_CLOSE_UPVALUE);
+    } else {
+      emit_byte(OP_POP);
+    }
+
     current->local_count--;
   }
 }
@@ -366,6 +373,7 @@ static void add_local(Token name) {
 
   Local* local = &current->locals[current->local_count++];
   local->name = name;
+  local->is_captured = false;
   local->depth = DEPTH_UNITIALIZED; // locals are marked as uninitialized until
                                     // their initializer expression has been parsed,
                                     // so that this sort of thing is marked as invalid
@@ -411,6 +419,7 @@ static int resolve_upvalue(Compiler* compiler, Token* name) {
   // if it's there, create a local upvalue capturing it
   int local = resolve_local(compiler->enclosing, name);
   if (local != UNRESOLVED_LOCAL) {
+    compiler->enclosing->locals[local].is_captured = true;
     return add_upvalue(compiler, (uint8_t) local, true);
   }
 

@@ -77,13 +77,18 @@ struct ObjString {
   uint32_t hash; // eagerly-computed hash
 };
 
-typedef struct {
+typedef struct ObjUpvalue {
   Obj obj;
   Value* location; // reference to the captured variable; note that
                    // this is a Value*, not just a Value, pointing
                    // to the upstream variable so that mutations made
                    // via this upvalue are reflected in the original
                    // scope as well
+
+  Value closed; // once an upvalue is "closed", it stores the value of
+                // the closed-over variable in this field (on the heap)
+
+  struct ObjUpvalue* next;
 } ObjUpvalue;
 
 // Closures point to a function to invoke, along with zero

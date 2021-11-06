@@ -110,7 +110,9 @@ static void print_function(ObjFunction* func) {
 
 ObjUpvalue* new_upvalue(Value* slot) {
   ObjUpvalue* uv = ALLOCATE_OBJ(ObjUpvalue, OBJ_UPVALUE);
+  uv->closed = NIL_VAL;
   uv->location = slot;
+  uv->next = NULL;
   return uv;
 }
 

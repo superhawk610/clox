@@ -30,6 +30,7 @@ static void define_native(const char* name, NativeFn func) {
 static void reset_stack() {
   vm.stack_top = vm.stack;
   vm.frame_count = 0;
+  vm.open_upvalues = NULL;
 }
 
 void init_vm() {           // initialize the VM:
@@ -141,8 +142,36 @@ static bool call_value(Value callee, uint8_t argc) {
 }
 
 static ObjUpvalue* capture_upvalue(Value* local) {
+  ObjUpvalue* prev = NULL;
+  ObjUpvalue* uv = vm.open_upvalues;
+  while (uv != NULL && uv->location > local) {
+    prev = uv;
+    uv = uv->next;
+  }
+
+  // if we can find a matching upvalue that's already been created,
+  // use it instead of building a new one (to prevent multiple aliasing)
+  if (uv != NULL && uv->location == local) {
+    return uv;
+  }
+
   ObjUpvalue* created_uv = new_upvalue(local);
+  created_uv->next = uv;
+
+  // if this was the first uv, set it as the head, otherwise append it
+  if (prev == NULL) vm.open_upvalues = created_uv;
+  else              prev->next = created_uv;
+
   return created_uv;
+}
+
+static void close_upvalues(Value* last) {
+  while (vm.open_upvalues != NULL && vm.open_upvalues->location >= last) {
+    ObjUpvalue* uv = vm.open_upvalues;
+    uv->closed = *uv->location;
+    uv->location = &uv->closed;
+    vm.open_upvalues = uv->next;
+  }
 }
 
 static inline bool is_falsey(Value val) {
@@ -420,8 +449,16 @@ static InterpretResult run() {
         break;
       }
 
+      case OP_CLOSE_UPVALUE:
+        close_upvalues(vm.stack_top - 1);
+        pop();
+        break;
+
       case OP_RETURN: {
         Value result = pop();
+        close_upvalues(frame->slots); // the compiler won't explicitly emit an
+                                      // OP_CLOSE_UPVALUE at the end of a function's
+                                      // scope, but we should still close any upvalues
         vm.frame_count--;
 
         if (vm.frame_count == 0) { // we've finish executing the top-level code

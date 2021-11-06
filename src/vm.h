@@ -79,6 +79,11 @@ typedef struct {
   Table    globals; // storage for global variables at runtime
   Table    strings; // container for interned strings
   Obj*     objects; // linked-list for naive garbage collection
+
+  ObjUpvalue* open_upvalues; // sorted linked-list (by stack index) tracking
+                             // open upvalues (when a new upvalue is captured,
+                             // if there's an existing upvalue pointing to the
+                             // same underlying stack index, reuse it)
 } VM;
 
 typedef enum {
